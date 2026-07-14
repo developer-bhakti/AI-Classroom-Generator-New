@@ -11,9 +11,9 @@ const subjectMap = {
   "Class 3": ["English", "Math", "Science"],
   "Class 4": ["English", "Math", "Science"],
   "Class 5": ["English", "Math", "Science"],
-  "Class 6": ["English", "Math", "Science", "Social Studies"],
-  "Class 7": ["English", "Math", "Science", "Social Studies"],
-  "Class 8": ["English", "Math", "Science", "Social Studies"],
+  "Class 6": ["English", "Math", "Science", "Social Science"],
+  "Class 7": ["English", "Math", "Science", "Social Science"],
+  "Class 8": ["English", "Math", "Science", "Social Science"],
   "Class 9": ["English", "Math", "Science", "History"],
   "Class 10": ["English", "Math", "Science", "History"],
   "Class 11": ["Physics", "Chemistry", "Biology", "Math"],
@@ -21,7 +21,7 @@ const subjectMap = {
 };
 
 const WorksheetGenerator = () => {
-  const [formData, setFormData] = useState({ topic: "Fractions", className: "Class 4", subject: "Math", gradeLevel: "Grade 4", duration: "20 mins", objective: "Practice problem solving" });
+  const [formData, setFormData] = useState({ topic: "Fractions", className: "Class 4", subject: "Math", difficultyLevel: "Medium", numberOfQuestions: "10", worksheetType: "Practice", learningObjectives: "Practice problem solving", additionalInstructions: "Keep language simple and age appropriate" });
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -62,11 +62,25 @@ const WorksheetGenerator = () => {
             </select>
             <label>Topic</label>
             <input name="topic" value={formData.topic} onChange={handleChange} />
-            <label>Duration</label>
-            <input name="duration" value={formData.duration} onChange={handleChange} />
-            <label>Learning objective</label>
-            <input name="objective" value={formData.objective} onChange={handleChange} />
-            <button className="primary-btn full" type="submit">Generate worksheet</button>
+            <label>Difficulty Level</label>
+            <select name="difficultyLevel" value={formData.difficultyLevel} onChange={handleChange}>
+              <option value="Easy">Easy</option>
+              <option value="Medium">Medium</option>
+              <option value="Hard">Hard</option>
+            </select>
+            <label>Number of Questions</label>
+            <input name="numberOfQuestions" value={formData.numberOfQuestions} onChange={handleChange} />
+            <label>Worksheet Type</label>
+            <input name="worksheetType" value={formData.worksheetType} onChange={handleChange} />
+            <label>Learning Objectives</label>
+            <input name="learningObjectives" value={formData.learningObjectives} onChange={handleChange} />
+            <label>Additional Instructions</label>
+            <textarea name="additionalInstructions" value={formData.additionalInstructions} onChange={handleChange} rows="3" />
+            <div className="form-actions">
+              <button className="primary-btn" type="submit">Generate Worksheet</button>
+              <button className="secondary-btn" type="button" onClick={() => setFormData({ ...formData, topic: "", learningObjectives: "", additionalInstructions: "" })}>Clear</button>
+              <button className="secondary-btn" type="button">Regenerate</button>
+            </div>
           </form>
 
           <div className="panel-card output-card">

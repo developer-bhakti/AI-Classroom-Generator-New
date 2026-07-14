@@ -2,32 +2,32 @@ import React, { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../Components/Navbar";
 import Sidebar from "../Components/Sidebar";
-import { FaBook, FaClipboardList, FaLightbulb, FaQuestionCircle, FaArrowRight, FaMagic } from "react-icons/fa";
+import { FileText, BookOpen, HelpCircle, Sparkles, ArrowRight, PencilRuler } from "lucide-react";
 
 const cards = [
   {
-    title: "Worksheets",
+    title: "AI Worksheet Generator",
     description: "Create print-ready worksheets in seconds.",
     path: "/worksheet",
-    icon: <FaBook />
+    icon: <FileText size={22} />
   },
   {
-    title: "Lesson Plans",
+    title: "AI Lesson Plan Generator",
     description: "Outline engaging lessons with clear structure.",
     path: "/lesson",
-    icon: <FaClipboardList />
+    icon: <BookOpen size={22} />
   },
   {
-    title: "Quizzes",
+    title: "AI Quiz Generator",
     description: "Assess understanding with ready-made questions.",
     path: "/quiz",
-    icon: <FaQuestionCircle />
+    icon: <HelpCircle size={22} />
   },
   {
-    title: "Activities",
+    title: "AI Classroom Activity Generator",
     description: "Spark curiosity with fresh classroom ideas.",
     path: "/activities",
-    icon: <FaLightbulb />
+    icon: <Sparkles size={22} />
   }
 ];
 
@@ -68,23 +68,23 @@ const Dashboard = () => {
         <Navbar title="Dashboard" />
 
         <div className="content-area">
-          <section className="hero-card">
-            <div>
-              <p className="eyebrow">AI Classroom Generator</p>
+          <section className="hero-card hero-card-rich">
+            <div className="hero-copy">
+              <p className="eyebrow">Adiuvaret AI Classroom Generator</p>
               <h1>Design impactful lessons in minutes.</h1>
               <p className="hero-text">
                 Empower your classroom with instantly generated worksheets, lesson plans, quizzes, and activities tailored to your students.
               </p>
               <div className="hero-actions">
                 <Link to="/worksheet" className="primary-btn">
-                  <FaMagic /> Start creating
+                  <PencilRuler size={16} /> Start creating
                 </Link>
                 <Link to="/settings" className="secondary-btn">
                   Customize experience
                 </Link>
               </div>
             </div>
-            <div className="hero-glow" />
+            <div className="hero-orb" />
           </section>
 
           <section className="stats-grid">
@@ -103,7 +103,7 @@ const Dashboard = () => {
                 <h3>{card.title}</h3>
                 <p>{card.description}</p>
                 <span className="resource-link">
-                  Open tool <FaArrowRight />
+                  Open tool <ArrowRight size={16} />
                 </span>
               </Link>
             ))}

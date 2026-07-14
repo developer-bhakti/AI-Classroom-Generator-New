@@ -1,42 +1,48 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { FaGraduationCap, FaArrowRight, FaBookOpen, FaBrain, FaMagic } from "react-icons/fa";
-import { Eye, EyeOff, ScanLine, Moon, Sun } from "lucide-react";
+import { Eye, EyeOff, Moon, Sun } from "lucide-react";
 
-const Login = () => {
+const SignUp = () => {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+  });
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [theme, setTheme] = useState(() => document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light");
   const [message, setMessage] = useState("");
   const [showModal, setShowModal] = useState(false);
 
-  const handleLogin = (e) => {
+  const handleChange = (e) => {
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleSignUp = (e) => {
     e.preventDefault();
-    const expectedEmail = "adiuvaret@gmail.com";
-    const expectedPassword = "adiuvaret@123";
 
-    if (email.trim().toLowerCase() === expectedEmail && password === expectedPassword) {
-      localStorage.setItem("aiClassroomAuth", "true");
-      localStorage.setItem("adiuvaret-user", email);
-      setMessage("Signed in successfully.");
+    if (!formData.name.trim() || !formData.email.trim() || !formData.password || !formData.confirmPassword) {
+      setMessage("Please fill in all fields to create your account.");
       setShowModal(true);
-      navigate("/dashboard", { replace: true });
-    } else {
-      setMessage("Incorrect login ID or password. Please contact our team at info@adiuvaret.in or call +91 80879 24064 / +91 91751 84064.");
-      setShowModal(true);
+      return;
     }
-  };
 
-  const handleSignUp = () => {
-    navigate("/signup");
-  };
+    if (formData.password !== formData.confirmPassword) {
+      setMessage("Passwords do not match. Please try again.");
+      setShowModal(true);
+      return;
+    }
 
-  const handleGoogleSignIn = () => {
-    setMessage("Google sign-in is ready for integration. Please use the Login button to continue.");
+    localStorage.setItem("aiClassroomAuth", "true");
+    localStorage.setItem("adiuvaret-user", formData.email);
+    localStorage.setItem("adiuvaret-name", formData.name);
+
+    setMessage(`Welcome, ${formData.name}! Your account is ready.`);
     setShowModal(true);
+    navigate("/dashboard", { replace: true });
   };
 
   const toggleTheme = () => {
@@ -53,16 +59,17 @@ const Login = () => {
         {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
         {theme === "dark" ? "Light mode" : "Dark mode"}
       </button>
+
       <div className="auth-shell">
         <div className="auth-copy">
           <div className="brand-badge">
             <FaGraduationCap />
             <span>Adiuvaret</span>
           </div>
-          <div className="eyebrow">AI Classroom Generator</div>
-          <h1>Design smarter lessons with AI.</h1>
+          <div className="eyebrow">Create your account</div>
+          <h1>Start building smarter classroom resources.</h1>
           <p>
-            Create worksheets, lesson plans, quizzes, and classroom activities in minutes with a calm, modern teaching workspace.
+            Join the Adiuvaret workspace to create worksheets, lesson plans, quizzes, and activities in minutes.
           </p>
 
           <div className="badge-row">
@@ -71,44 +78,67 @@ const Login = () => {
             <span className="feature-badge"><FaMagic /> Premium experience</span>
           </div>
 
-          <form onSubmit={handleLogin} className="auth-form">
+          <form onSubmit={handleSignUp} className="auth-form">
+            <label>Full Name</label>
+            <input
+              type="text"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              placeholder="Enter Your Name"
+            />
+
             <label>Email</label>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="teacher@example.com" />
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              placeholder="teacher@example.com"
+            />
 
             <label>Password</label>
             <div className="password-field">
-              <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter password" />
+              <input
+                type={showPassword ? "text" : "password"}
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                placeholder="Create a password"
+              />
               <button type="button" className="password-toggle" onClick={() => setShowPassword((prev) => !prev)}>
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
 
-            <div className="form-row">
-              <label className="checkbox-row">
-                <input type="checkbox" checked={rememberMe} onChange={() => setRememberMe((prev) => !prev)} />
-                <span>Remember Me</span>
-              </label>
-              <a href="#" className="link-text">Forgot Password?</a>
+            <label>Confirm Password</label>
+            <div className="password-field">
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                placeholder="Confirm password"
+              />
+              <button type="button" className="password-toggle" onClick={() => setShowConfirmPassword((prev) => !prev)}>
+                {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
             </div>
 
             <button type="submit" className="primary-btn full">
-              <FaGraduationCap /> Login
+              <FaGraduationCap /> Create Account
               <FaArrowRight />
             </button>
 
-            <button type="button" className="secondary-btn full auth-secondary-btn" onClick={handleSignUp}>
-              Sign Up
-            </button>
-
-            <button type="button" className="google-btn full" onClick={handleGoogleSignIn}>
-              <ScanLine size={16} /> Continue with Google
-            </button>
+            <p className="form-row">
+              Already have an account? <Link to="/" className="link-text">Login</Link>
+            </p>
 
             {showModal && message ? (
               <div className="auth-modal-backdrop" onClick={() => setShowModal(false)}>
-                <div className={`auth-message ${message.toLowerCase().includes("incorrect") ? "auth-message-error" : ""}`} onClick={(e) => e.stopPropagation()}>
+                <div className="auth-message" onClick={(e) => e.stopPropagation()}>
                   <div className="auth-modal-header">
-                    <strong>{message.toLowerCase().includes("incorrect") ? "Login Error" : "Notice"}</strong>
+                    <strong>Account</strong>
                     <button type="button" className="modal-close-btn" onClick={() => setShowModal(false)}>×</button>
                   </div>
                   <p>{message}</p>
@@ -142,4 +172,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default SignUp;

@@ -1,36 +1,45 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
-  FaHome,
-  FaBook,
-  FaQuestionCircle,
-  FaClipboardList,
-  FaLightbulb,
-  FaCog,
-  FaGraduationCap
-} from "react-icons/fa";
+  LayoutDashboard,
+  FileText,
+  BookOpen,
+  HelpCircle,
+  Sparkles,
+  FolderKanban,
+  History,
+  UserCircle,
+  Settings,
+  LogOut,
+  ClipboardCheck
+} from "lucide-react";
 
 const Sidebar = () => {
   const location = useLocation();
 
   const menu = [
-    { name: "Dashboard", icon: <FaHome />, path: "/dashboard" },
-    { name: "Worksheet", icon: <FaBook />, path: "/worksheet" },
-    { name: "Lesson", icon: <FaClipboardList />, path: "/lesson" },
-    { name: "Quiz", icon: <FaQuestionCircle />, path: "/quiz" },
-    { name: "Activities", icon: <FaLightbulb />, path: "/activities" },
-    { name: "Settings", icon: <FaCog />, path: "/settings" }
+    { name: "Dashboard", icon: <LayoutDashboard size={18} />, path: "/dashboard" },
+    { name: "Worksheet Generator", icon: <FileText size={18} />, path: "/worksheet" },
+    { name: "Lesson Plan Generator", icon: <BookOpen size={18} />, path: "/lesson" },
+    { name: "Quiz Generator", icon: <HelpCircle size={18} />, path: "/quiz" },
+    { name: "Activity Generator", icon: <Sparkles size={18} />, path: "/activities" },
+    { name: "Exam Paper Generator", icon: <ClipboardCheck size={18} />, path: "/exam" },
+    { name: "Saved Content", icon: <FolderKanban size={18} />, path: "/settings" },
+    { name: "History", icon: <History size={18} />, path: "/settings" },
+    { name: "Profile", icon: <UserCircle size={18} />, path: "/settings" },
+    { name: "Settings", icon: <Settings size={18} />, path: "/settings" },
+    { name: "Logout", icon: <LogOut size={18} />, path: "/" }
   ];
 
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
         <div className="brand-icon">
-          <FaGraduationCap />
+          <Sparkles size={18} />
         </div>
         <div>
-          <h2>AI Classroom</h2>
-          <p>Teacher Studio</p>
+          <h2>Adiuvaret</h2>
+          <p>AI Classroom Generator</p>
         </div>
       </div>
 

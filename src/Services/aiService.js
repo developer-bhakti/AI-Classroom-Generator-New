@@ -2,7 +2,8 @@ import {
   buildWorksheetPrompt,
   buildLessonPrompt,
   buildQuizPrompt,
-  buildActivityPrompt
+  buildActivityPrompt,
+  buildExamPrompt
 } from "./promptBuilder";
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -77,6 +78,21 @@ export const generateResource = async ({ type, formData }) => {
           { heading: "Activity 3", items: ["Hands-on problem-solving challenge"] }
         ],
         note: `Estimated time: ${formData.duration}`,
+        prompt
+      };
+
+    case "exam":
+      prompt = buildExamPrompt(formData);
+      await wait(900);
+      return {
+        title: `${formData.topic} Exam Paper`,
+        summary: `A balanced exam paper for ${formData.className} students covering ${formData.topic} with ${formData.totalMarks} marks.`,
+        sections: [
+          { heading: "Section A", items: ["Short answer questions", "Concept recall", "One-step calculations"] },
+          { heading: "Section B", items: ["Application-based questions", "Structured response", "Reasoning prompt"] },
+          { heading: "Answer Guide", items: ["Sample solutions", "Marking hints", "Teacher notes"] }
+        ],
+        note: `Duration: ${formData.duration} • Difficulty: ${formData.difficulty}`,
         prompt
       };
 

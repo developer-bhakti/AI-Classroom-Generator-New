@@ -13,3 +13,7 @@ export const buildQuizPrompt = ({ topic, gradeLevel, duration, objective }) => {
 export const buildActivityPrompt = ({ topic, gradeLevel, duration, objective }) => {
   return `Generate 4 creative classroom activity ideas for ${topic} for ${gradeLevel} students. Each activity should support ${objective}, be hands-on, and fit into a ${duration} session. Include a short setup instruction and an expected learning outcome for each idea.`;
 };
+
+export const buildExamPrompt = ({ topic, className, subject, duration, totalMarks, difficulty, instructions }) => {
+  return `Create a polished exam paper for ${className} on ${subject}: ${topic}. The paper should include clear instructions, a suitable difficulty level of ${difficulty}, a total of ${totalMarks} marks, and a ${duration} time limit. Include ${instructions} and structure it with sections for short answer and application questions.`;
+};
