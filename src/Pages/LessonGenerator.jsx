@@ -6,9 +6,13 @@ import { generateResource } from "../Services/aiService";
 import { describeGeminiError } from "../Services/geminiService";
 import { recordHistory, saveContent, removeSavedContent } from "../Services/contentStore";
 
-const classOptions = Array.from({ length: 12 }, (_, index) => `Class ${index + 1}`);
+const classOptions = ["PG", "Nursery", "LKG", "UKG", ...Array.from({ length: 12 }, (_, index) => `Class ${index + 1}`)];
 
 const subjectMap = {
+  "PG": ["English", "Math", "EVS"],
+  "Nursery": ["English", "Math", "EVS"],
+  "LKG": ["English", "Math", "EVS"],
+  "UKG": ["English", "Math", "EVS"],
   "Class 1": ["English", "Math", "EVS"],
   "Class 2": ["English", "Math", "EVS"],
   "Class 3": ["English", "Math", "Science"],
