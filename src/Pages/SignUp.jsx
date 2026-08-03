@@ -85,7 +85,7 @@ const SignUp = () => {
               name="name"
               value={formData.name}
               onChange={handleChange}
-              placeholder="Enter Your Name"
+              placeholder="Enter Your Nameaz"
             />
 
             <label>Email</label>

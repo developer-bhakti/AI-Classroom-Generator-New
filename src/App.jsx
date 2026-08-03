@@ -10,6 +10,9 @@ import QuizGenerator from "./Pages/QuizGenerator";
 import ActivityIdeas from "./Pages/ActivityIdeas";
 import Settings from "./Pages/Settings";
 import ExamPaper from "./Pages/ExamPaper";
+import SavedContent from "./Pages/SavedContent";
+import History from "./Pages/History";
+import Profile from "./Pages/Profile";
 import ProtectedRoute from "./Components/ProtectedRoute";
 
 function App() {
@@ -87,6 +90,30 @@ function App() {
         element={
           <ProtectedRoute>
             <ExamPaper />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/saved"
+        element={
+          <ProtectedRoute>
+            <SavedContent />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/history"
+        element={
+          <ProtectedRoute>
+            <History />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <Profile />
           </ProtectedRoute>
         }
       />

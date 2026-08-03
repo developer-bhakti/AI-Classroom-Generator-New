@@ -1,7 +1,10 @@
 import React, { useMemo, useState } from "react";
 import Navbar from "../Components/Navbar";
 import Sidebar from "../Components/Sidebar";
+import { Bookmark, BookmarkCheck, AlertTriangle } from "lucide-react";
 import { generateResource } from "../Services/aiService";
+import { describeGeminiError } from "../Services/geminiService";
+import { recordHistory, saveContent, removeSavedContent } from "../Services/contentStore";
 
 const classOptions = Array.from({ length: 12 }, (_, index) => `Class ${index + 1}`);
 
@@ -24,6 +27,9 @@ const WorksheetGenerator = () => {
   const [formData, setFormData] = useState({ topic: "Fractions", className: "Class 4", subject: "Math", difficultyLevel: "Medium", numberOfQuestions: "10", worksheetType: "Practice", learningObjectives: "Practice problem solving", additionalInstructions: "Keep language simple and age appropriate" });
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [entry, setEntry] = useState(null);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState(null);
 
   const subjects = useMemo(() => subjectMap[formData.className] || [], [formData.className]);
 
@@ -36,12 +42,34 @@ const WorksheetGenerator = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const runGeneration = async () => {
     setLoading(true);
-    const resource = await generateResource({ type: "worksheet", formData: { ...formData, topic: `${formData.subject}: ${formData.topic}` } });
-    setResult(resource);
-    setLoading(false);
+    setError(null);
+    try {
+      const resource = await generateResource({ type: "worksheet", formData: { ...formData, topic: `${formData.subject}: ${formData.topic}` } });
+      setResult(resource);
+      setEntry(recordHistory({ type: "worksheet", formData, result: resource }));
+      setSaved(false);
+    } catch (err) {
+      setError(describeGeminiError(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    runGeneration();
+  };
+
+  const toggleSave = () => {
+    if (!entry) return;
+    if (saved) {
+      removeSavedContent(entry.id);
+    } else {
+      saveContent(entry);
+    }
+    setSaved((prev) => !prev);
   };
 
   return (
@@ -79,14 +107,29 @@ const WorksheetGenerator = () => {
             <div className="form-actions">
               <button className="primary-btn" type="submit">Generate Worksheet</button>
               <button className="secondary-btn" type="button" onClick={() => setFormData({ ...formData, topic: "", learningObjectives: "", additionalInstructions: "" })}>Clear</button>
-              <button className="secondary-btn" type="button">Regenerate</button>
+              <button className="secondary-btn" type="button" disabled={loading} onClick={runGeneration}>Regenerate</button>
             </div>
           </form>
 
           <div className="panel-card output-card">
-            {loading ? <p>Generating your worksheet...</p> : result ? (
+            {loading ? (
+              <div className="loading-state">
+                <div className="spinner" />
+                <p>Generating your worksheet...</p>
+              </div>
+            ) : error ? (
+              <div className="error-state">
+                <p><AlertTriangle size={16} /> {error}</p>
+                <button type="button" className="secondary-btn" onClick={runGeneration}>Try again</button>
+              </div>
+            ) : result ? (
               <>
-                <h3>{result.title}</h3>
+                <div className="output-card-header">
+                  <h3>{result.title}</h3>
+                  <button type="button" className={`save-toggle-btn ${saved ? "active" : ""}`} onClick={toggleSave}>
+                    {saved ? <BookmarkCheck size={16} /> : <Bookmark size={16} />} {saved ? "Saved" : "Save"}
+                  </button>
+                </div>
                 <p>{result.summary}</p>
                 {result.sections.map((section) => (
                   <div key={section.heading} className="output-section">

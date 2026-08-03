@@ -1,7 +1,10 @@
 import React, { useMemo, useState } from "react";
 import Navbar from "../Components/Navbar";
 import Sidebar from "../Components/Sidebar";
-import { Sparkles, FileText, CheckCircle2 } from "lucide-react";
+import { Sparkles, FileText, CheckCircle2, Bookmark, BookmarkCheck, AlertTriangle } from "lucide-react";
+import { generateResource } from "../Services/aiService";
+import { describeGeminiError } from "../Services/geminiService";
+import { recordHistory, saveContent, removeSavedContent } from "../Services/contentStore";
 
 const classOptions = Array.from({ length: 12 }, (_, index) => `Class ${index + 1}`);
 
@@ -32,6 +35,9 @@ const ExamPaper = () => {
   });
   const [generatedPaper, setGeneratedPaper] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [entry, setEntry] = useState(null);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState(null);
 
   const subjects = useMemo(() => subjectMap[formData.className] || [], [formData.className]);
 
@@ -44,42 +50,41 @@ const ExamPaper = () => {
     }
   };
 
+  const runGeneration = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const paper = await generateResource({
+        type: "exam",
+        formData: {
+          ...formData,
+          topic: `${formData.subject}: ${formData.topic}`
+        }
+      });
+      setGeneratedPaper(paper);
+      setEntry(recordHistory({ type: "exam", formData, result: paper }));
+      setSaved(false);
+    } catch (err) {
+      setError(describeGeminiError(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    setLoading(true);
+    runGeneration();
+  };
 
-    setTimeout(() => {
-      const paper = {
-        title: `${formData.subject} Exam Paper - ${formData.topic}`,
-        summary: `A ${formData.difficulty.toLowerCase()} difficulty assessment for ${formData.className} designed to fit within ${formData.duration}.`,
-        sections: [
-          {
-            heading: "Section A: Short Answer",
-            items: [
-              "Define the key concept in your own words.",
-              "Solve the given problem step by step.",
-              "Explain the method you used."
-            ]
-          },
-          {
-            heading: "Section B: Application",
-            items: [
-              "Apply the concept to a real-life example.",
-              "Compare two methods and justify your answer.",
-              "Write a short explanation for your result."
-            ]
-          },
-          {
-            heading: "Instructions",
-            items: [formData.instructions, `Total Marks: ${formData.totalMarks}`]
-          }
-        ],
-        note: "This draft is ready to print, review, or share with students."
-      };
-
-      setGeneratedPaper(paper);
-      setLoading(false);
-    }, 900);
+  const toggleSave = () => {
+    if (!entry) return;
+    if (saved) {
+      removeSavedContent(entry.id);
+    } else {
+      saveContent(entry);
+    }
+    setSaved((prev) => !prev);
   };
 
   return (
@@ -149,11 +154,21 @@ const ExamPaper = () => {
                   <div className="spinner" />
                   <p>Generating your exam paper...</p>
                 </div>
+              ) : error ? (
+                <div className="error-state">
+                  <p><AlertTriangle size={16} /> {error}</p>
+                  <button type="button" className="secondary-btn" onClick={runGeneration}>Try again</button>
+                </div>
               ) : generatedPaper ? (
                 <>
-                  <div className="preview-chip">
-                    <CheckCircle2 size={16} />
-                    Draft generated successfully
+                  <div className="output-card-header">
+                    <div className="preview-chip">
+                      <CheckCircle2 size={16} />
+                      Draft generated successfully
+                    </div>
+                    <button type="button" className={`save-toggle-btn ${saved ? "active" : ""}`} onClick={toggleSave}>
+                      {saved ? <BookmarkCheck size={16} /> : <Bookmark size={16} />} {saved ? "Saved" : "Save"}
+                    </button>
                   </div>
                   <h4>{generatedPaper.title}</h4>
                   <p>{generatedPaper.summary}</p>

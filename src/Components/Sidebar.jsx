@@ -1,5 +1,5 @@
 import React from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   FileText,
@@ -16,6 +16,12 @@ import {
 
 const Sidebar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    localStorage.removeItem("aiClassroomAuth");
+    navigate("/", { replace: true });
+  };
 
   const menu = [
     { name: "Dashboard", icon: <LayoutDashboard size={18} />, path: "/dashboard" },
@@ -24,9 +30,9 @@ const Sidebar = () => {
     { name: "Quiz Generator", icon: <HelpCircle size={18} />, path: "/quiz" },
     { name: "Activity Generator", icon: <Sparkles size={18} />, path: "/activities" },
     { name: "Exam Paper Generator", icon: <ClipboardCheck size={18} />, path: "/exam" },
-    { name: "Saved Content", icon: <FolderKanban size={18} />, path: "/settings" },
-    { name: "History", icon: <History size={18} />, path: "/settings" },
-    { name: "Profile", icon: <UserCircle size={18} />, path: "/settings" },
+    { name: "Saved Content", icon: <FolderKanban size={18} />, path: "/saved" },
+    { name: "History", icon: <History size={18} />, path: "/history" },
+    { name: "Profile", icon: <UserCircle size={18} />, path: "/profile" },
     { name: "Settings", icon: <Settings size={18} />, path: "/settings" },
     { name: "Logout", icon: <LogOut size={18} />, path: "/" }
   ];
@@ -46,6 +52,16 @@ const Sidebar = () => {
       <nav className="sidebar-nav">
         {menu.map((item) => {
           const active = location.pathname === item.path;
+
+          if (item.name === "Logout") {
+            return (
+              <button key={item.name} type="button" className="nav-item nav-item-btn" onClick={handleLogout}>
+                <span>{item.icon}</span>
+                {item.name}
+              </button>
+            );
+          }
+
           return (
             <Link key={item.path} to={item.path} className={`nav-item ${active ? "active" : ""}`}>
               <span>{item.icon}</span>
