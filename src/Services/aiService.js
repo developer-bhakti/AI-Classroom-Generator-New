@@ -6,6 +6,7 @@ import {
   buildExamPrompt
 } from "./promptBuilder";
 import { generateStructuredContent } from "./geminiService";
+import { getLanguage } from "./contentStore";
 
 const formatTopic = (value) => value?.split(": ").pop()?.trim() || value || "your topic";
 
@@ -31,9 +32,15 @@ export const generateResource = async ({ type, formData }) => {
     throw new Error(`Unsupported resource type: ${type}`);
   }
 
-  const prompt = buildPrompt(formData);
+  const language = getLanguage();
+  let prompt = buildPrompt(formData);
+  if (language !== "English") {
+    prompt += `\n\nWrite the entire response in ${language} — the title, summary, and every section heading and item — not just a translation note. Keep numbers, formulas, and proper nouns in their standard form.`;
+  }
+
   const { title, summary, sections } = await generateStructuredContent(prompt);
-  const note = NOTE_BUILDERS[type]?.(formData) || "";
+  const baseNote = NOTE_BUILDERS[type]?.(formData) || "";
+  const note = language !== "English" ? `${baseNote}${baseNote ? " • " : ""}Generated in ${language}` : baseNote;
 
   return {
     title: title || `${formatTopic(formData.topic)} ${type}`,

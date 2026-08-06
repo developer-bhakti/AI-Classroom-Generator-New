@@ -1,6 +1,18 @@
 const HISTORY_KEY = "adiuvaret-history";
 const SAVED_KEY = "adiuvaret-saved";
+const LANGUAGE_KEY = "adiuvaret-language";
 const HISTORY_LIMIT = 50;
+
+export const LANGUAGES = ["English", "Hindi"];
+
+export const getLanguage = () => {
+  const stored = localStorage.getItem(LANGUAGE_KEY);
+  return LANGUAGES.includes(stored) ? stored : "English";
+};
+
+export const setLanguage = (language) => {
+  localStorage.setItem(LANGUAGE_KEY, language);
+};
 
 export const RESOURCE_TYPES = {
   worksheet: { label: "Worksheet", path: "/worksheet", icon: "worksheet" },

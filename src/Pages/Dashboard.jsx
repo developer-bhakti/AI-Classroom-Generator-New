@@ -1,8 +1,10 @@
 import React, { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { createPortal } from "react-dom";
 import Navbar from "../Components/Navbar";
 import Sidebar from "../Components/Sidebar";
-import { FileText, BookOpen, HelpCircle, Sparkles, ArrowRight, PencilRuler } from "lucide-react";
+import { FileText, BookOpen, HelpCircle, Sparkles, ArrowRight, PencilRuler, Languages } from "lucide-react";
+import { LANGUAGES, getLanguage, setLanguage } from "../Services/contentStore";
 
 const cards = [
   {
@@ -39,6 +41,13 @@ const quickStats = [
 
 const Dashboard = () => {
   const [selected, setSelected] = useState("worksheet");
+  const [showCustomize, setShowCustomize] = useState(false);
+  const [language, setLanguageState] = useState(() => getLanguage());
+
+  const handleSelectLanguage = (lang) => {
+    setLanguage(lang);
+    setLanguageState(lang);
+  };
 
   const featureCopy = useMemo(() => ({
     worksheet: {
@@ -79,9 +88,9 @@ const Dashboard = () => {
                 <Link to="/worksheet" className="primary-btn">
                   <PencilRuler size={16} /> Start creating
                 </Link>
-                <Link to="/settings" className="secondary-btn">
-                  Customize experience
-                </Link>
+                <button type="button" className="secondary-btn" onClick={() => setShowCustomize(true)}>
+                  <Languages size={16} /> Customize experience
+                </button>
               </div>
             </div>
             <div className="hero-orb" />
@@ -128,6 +137,36 @@ const Dashboard = () => {
           </section>
         </div>
       </main>
+
+      {showCustomize ? createPortal(
+        <div className="profile-modal-backdrop" onClick={() => setShowCustomize(false)}>
+          <div className="profile-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="profile-modal-header">
+              <h3>Customize Experience</h3>
+              <button type="button" className="modal-close-btn" onClick={() => setShowCustomize(false)}>×</button>
+            </div>
+            <div className="profile-modal-body">
+              <p>Choose the language the AI should write your generated resources in. This applies to every worksheet, lesson plan, quiz, activity, and exam paper you generate from now on.</p>
+              <div className="field-row">
+                <label>Generate in</label>
+                <div className="feature-tabs">
+                  {LANGUAGES.map((lang) => (
+                    <button
+                      key={lang}
+                      type="button"
+                      className={`tab-btn ${language === lang ? "active" : ""}`}
+                      onClick={() => handleSelectLanguage(lang)}
+                    >
+                      {lang}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      ) : null}
     </div>
   );
 };
