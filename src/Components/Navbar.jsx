@@ -1,7 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
-import { Search, Bell, Sun, Moon, Sparkles, UserCircle2, FileText, BookOpen, HelpCircle, ClipboardCheck, X } from "lucide-react";
-import { RESOURCE_TYPES, getHistory, getSavedContent } from "../Services/contentStore";
+import { Link } from "react-router-dom";
+import { Search, Bell, Sun, Moon, Sparkles, UserCircle2, FileText, BookOpen, HelpCircle, ClipboardCheck, X, Menu } from "lucide-react";
+import { RESOURCE_TYPES, subscribeContentStore, getContentSnapshot } from "../Services/contentStore";
+import { sidebarStore } from "../Services/sidebarStore";
+import { useAuth } from "../context/useAuth";
 
 const TYPE_ICONS = {
   worksheet: FileText,
@@ -18,15 +21,18 @@ const Navbar = ({ title }) => {
   const [searchFocused, setSearchFocused] = useState(false);
   const [preview, setPreview] = useState(null);
   const searchInputRef = useRef(null);
-  const userEmail = localStorage.getItem("adiuvaret-user") || "adiuvaret@gmail.com";
+  const { user, profile, isAdmin } = useAuth();
+  const { history } = useSyncExternalStore(subscribeContentStore, getContentSnapshot);
+
+  const userEmail = profile?.email || user?.email || "";
+  const displayName = profile?.full_name || userEmail.split("@")[0] || "Teacher";
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return [];
-    const combined = [...getHistory(), ...getSavedContent()];
     const seen = new Set();
     const matches = [];
-    for (const item of combined) {
+    for (const item of history) {
       if (seen.has(item.id)) continue;
       const haystack = `${item.title} ${item.className} ${item.subject} ${RESOURCE_TYPES[item.type]?.label || item.type}`.toLowerCase();
       if (haystack.includes(q)) {
@@ -35,7 +41,7 @@ const Navbar = ({ title }) => {
       }
     }
     return matches.slice(0, 8);
-  }, [query]);
+  }, [query, history]);
 
   useEffect(() => {
     const currentTheme = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
@@ -52,9 +58,14 @@ const Navbar = ({ title }) => {
 
   return (
     <header className="topbar">
-      <div>
-        <p className="eyebrow">Adiuvaret AI Classroom Generator</p>
-        <h2>{title}</h2>
+      <div className="topbar-left">
+        <button type="button" className="hamburger-btn" aria-label="Toggle menu" onClick={() => sidebarStore.toggle()}>
+          <Menu size={20} />
+        </button>
+        <div>
+          <p className="eyebrow">Adiuvaret AI Classroom Generator</p>
+          <h2>{title}</h2>
+        </div>
       </div>
 
       <div className="topbar-right">
@@ -118,7 +129,7 @@ const Navbar = ({ title }) => {
         </div>
         <div className="chip">
           <Sparkles size={16} />
-          AI ready
+          <span className="chip-label">AI ready</span>
         </div>
         <button className="icon-btn" aria-label="Notifications">
           <Bell size={16} />
@@ -128,7 +139,7 @@ const Navbar = ({ title }) => {
         </button>
         <button type="button" className="profile-pill" onClick={() => setShowProfile((prev) => !prev)}>
           <UserCircle2 size={22} />
-          <span>Teacher</span>
+          <span>{displayName}</span>
         </button>
       </div>
 
@@ -140,10 +151,12 @@ const Navbar = ({ title }) => {
               <button type="button" className="modal-close-btn" onClick={() => setShowProfile(false)}>×</button>
             </div>
             <div className="profile-modal-body">
-              <p><strong>Name:</strong> Teacher</p>
+              <p><strong>Name:</strong> {displayName}</p>
               <p><strong>Email:</strong> {userEmail}</p>
-              <p><strong>Role:</strong> Educator</p>
-              <p><strong>Plan:</strong> Premium</p>
+              <p><strong>Role:</strong> {isAdmin ? "Administrator" : "Educator"}</p>
+              <Link to="/subscription" className="secondary-btn full" onClick={() => setShowProfile(false)}>
+                Manage subscription
+              </Link>
             </div>
           </div>
         </div>,

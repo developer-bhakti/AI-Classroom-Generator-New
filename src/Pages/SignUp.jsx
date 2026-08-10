@@ -2,6 +2,9 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FaGraduationCap, FaArrowRight, FaBookOpen, FaBrain, FaMagic } from "react-icons/fa";
 import { Eye, EyeOff, Moon, Sun } from "lucide-react";
+import { supabase, isSupabaseConfigured, SUPABASE_SETUP_MESSAGE } from "../Services/supabaseClient";
+import { describeAuthError } from "../Services/authErrors";
+import { logActivity } from "../Services/activityLog";
 
 const SignUp = () => {
   const navigate = useNavigate();
@@ -16,16 +19,29 @@ const SignUp = () => {
   const [theme, setTheme] = useState(() => document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light");
   const [message, setMessage] = useState("");
   const [showModal, setShowModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const handleChange = (e) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleSignUp = (e) => {
+  const handleSignUp = async (e) => {
     e.preventDefault();
+
+    if (!isSupabaseConfigured) {
+      setMessage(SUPABASE_SETUP_MESSAGE);
+      setShowModal(true);
+      return;
+    }
 
     if (!formData.name.trim() || !formData.email.trim() || !formData.password || !formData.confirmPassword) {
       setMessage("Please fill in all fields to create your account.");
+      setShowModal(true);
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      setMessage("Your password must be at least 6 characters long.");
       setShowModal(true);
       return;
     }
@@ -36,12 +52,27 @@ const SignUp = () => {
       return;
     }
 
-    localStorage.setItem("aiClassroomAuth", "true");
-    localStorage.setItem("adiuvaret-user", formData.email);
-    localStorage.setItem("adiuvaret-name", formData.name);
+    setSubmitting(true);
+    const { data, error } = await supabase.auth.signUp({
+      email: formData.email.trim().toLowerCase(),
+      password: formData.password,
+      options: { data: { full_name: formData.name.trim() } }
+    });
+    setSubmitting(false);
 
-    setMessage(`Welcome, ${formData.name}! Your account is ready.`);
-    setShowModal(true);
+    if (error) {
+      setMessage(describeAuthError(error));
+      setShowModal(true);
+      return;
+    }
+
+    if (!data.session) {
+      setMessage("Account created. Please check your email to confirm your address, then log in.");
+      setShowModal(true);
+      return;
+    }
+
+    logActivity(data.user.id, "signup", { full_name: formData.name.trim() });
     navigate("/dashboard", { replace: true });
   };
 
@@ -125,8 +156,8 @@ const SignUp = () => {
               </button>
             </div>
 
-            <button type="submit" className="primary-btn full">
-              <FaGraduationCap /> Create Account
+            <button type="submit" className="primary-btn full" disabled={submitting}>
+              <FaGraduationCap /> {submitting ? "Creating account..." : "Create Account"}
               <FaArrowRight />
             </button>
 

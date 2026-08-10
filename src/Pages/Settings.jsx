@@ -3,8 +3,12 @@ import { Link } from "react-router-dom";
 import { Bell, Palette, ShieldCheck, Sparkles, UserCircle2 } from "lucide-react";
 import Navbar from "../Components/Navbar";
 import Sidebar from "../Components/Sidebar";
+import { useAuth } from "../context/useAuth";
 
 const Settings = () => {
+  const { user, profile } = useAuth();
+  const email = profile?.email || user?.email || "";
+  const name = profile?.full_name || email.split("@")[0] || "Teacher";
   const [notifications, setNotifications] = useState(true);
   const [darkMode, setDarkMode] = useState(document.documentElement.getAttribute("data-theme") === "dark");
   const [aiTips, setAiTips] = useState(true);
@@ -41,11 +45,11 @@ const Settings = () => {
 
               <div className="settings-info-row">
                 <span>Name</span>
-                <strong>{localStorage.getItem("adiuvaret-name") || "Teacher"}</strong>
+                <strong>{name}</strong>
               </div>
               <div className="settings-info-row">
                 <span>Email</span>
-                <strong>{localStorage.getItem("adiuvaret-user") || "adiuvaret@gmail.com"}</strong>
+                <strong>{email}</strong>
               </div>
               <Link to="/profile" className="secondary-btn full">Manage profile</Link>
             </div>

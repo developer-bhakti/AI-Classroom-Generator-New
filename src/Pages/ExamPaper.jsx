@@ -67,7 +67,7 @@ const ExamPaper = () => {
         }
       });
       setGeneratedPaper(paper);
-      setEntry(recordHistory({ type: "exam", formData, result: paper }));
+      setEntry(await recordHistory({ type: "exam", formData, result: paper }));
       setSaved(false);
     } catch (err) {
       setError(describeGeminiError(err));
@@ -81,14 +81,14 @@ const ExamPaper = () => {
     runGeneration();
   };
 
-  const toggleSave = () => {
+  const toggleSave = async () => {
     if (!entry) return;
-    if (saved) {
-      removeSavedContent(entry.id);
-    } else {
-      saveContent(entry);
-    }
     setSaved((prev) => !prev);
+    if (saved) {
+      await removeSavedContent(entry.id);
+    } else {
+      await saveContent(entry);
+    }
   };
 
   return (

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useSyncExternalStore } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../Components/Navbar";
 import Sidebar from "../Components/Sidebar";
@@ -15,7 +15,12 @@ import {
   Sparkles,
   ClipboardCheck
 } from "lucide-react";
-import { RESOURCE_TYPES, getSavedContent, removeSavedContent } from "../Services/contentStore";
+import {
+  RESOURCE_TYPES,
+  removeSavedContent,
+  subscribeContentStore,
+  getContentSnapshot
+} from "../Services/contentStore";
 
 const TYPE_ICONS = {
   worksheet: FileText,
@@ -31,7 +36,7 @@ const formatDate = (iso) => {
 };
 
 const SavedContent = () => {
-  const [items, setItems] = useState(() => getSavedContent());
+  const { saved: items } = useSyncExternalStore(subscribeContentStore, getContentSnapshot);
   const [activeType, setActiveType] = useState("all");
   const [query, setQuery] = useState("");
   const [preview, setPreview] = useState(null);
@@ -45,9 +50,9 @@ const SavedContent = () => {
     });
   }, [items, activeType, query]);
 
-  const handleRemove = (id) => {
-    setItems(removeSavedContent(id));
+  const handleRemove = async (id) => {
     setPreview((current) => (current?.id === id ? null : current));
+    await removeSavedContent(id);
   };
 
   return (

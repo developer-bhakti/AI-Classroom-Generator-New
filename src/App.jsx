@@ -13,7 +13,11 @@ import ExamPaper from "./Pages/ExamPaper";
 import SavedContent from "./Pages/SavedContent";
 import History from "./Pages/History";
 import Profile from "./Pages/Profile";
+import Subscription from "./Pages/Subscription";
+import Admin from "./Pages/Admin";
 import ProtectedRoute from "./Components/ProtectedRoute";
+import AdminRoute from "./Components/AdminRoute";
+import SubscriptionNag from "./Components/SubscriptionNag";
 
 function App() {
   const [theme, setTheme] = useState("light");
@@ -33,7 +37,9 @@ function App() {
   }, [theme]);
 
   return (
-    <Routes>
+    <>
+      <SubscriptionNag />
+      <Routes>
       <Route path="/" element={<Login />} />
       <Route path="/signup" element={<SignUp />} />
 
@@ -48,7 +54,7 @@ function App() {
       <Route
         path="/worksheet"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requireSubscription>
             <WorksheetGenerator />
           </ProtectedRoute>
         }
@@ -56,7 +62,7 @@ function App() {
       <Route
         path="/lesson"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requireSubscription>
             <LessonGenerator />
           </ProtectedRoute>
         }
@@ -64,7 +70,7 @@ function App() {
       <Route
         path="/quiz"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requireSubscription>
             <QuizGenerator />
           </ProtectedRoute>
         }
@@ -72,7 +78,7 @@ function App() {
       <Route
         path="/activities"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requireSubscription>
             <ActivityIdeas />
           </ProtectedRoute>
         }
@@ -88,7 +94,7 @@ function App() {
       <Route
         path="/exam"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requireSubscription>
             <ExamPaper />
           </ProtectedRoute>
         }
@@ -96,7 +102,7 @@ function App() {
       <Route
         path="/saved"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requireSubscription>
             <SavedContent />
           </ProtectedRoute>
         }
@@ -104,7 +110,7 @@ function App() {
       <Route
         path="/history"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requireSubscription>
             <History />
           </ProtectedRoute>
         }
@@ -117,7 +123,24 @@ function App() {
           </ProtectedRoute>
         }
       />
-    </Routes>
+      <Route
+        path="/subscription"
+        element={
+          <ProtectedRoute>
+            <Subscription />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <AdminRoute>
+            <Admin />
+          </AdminRoute>
+        }
+      />
+      </Routes>
+    </>
   );
 }
 

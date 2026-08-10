@@ -52,7 +52,7 @@ const ActivityIdeas = () => {
     try {
       const resource = await generateResource({ type: "activity", formData: { ...formData, topic: `${formData.subject}: ${formData.topic}` } });
       setResult(resource);
-      setEntry(recordHistory({ type: "activity", formData, result: resource }));
+      setEntry(await recordHistory({ type: "activity", formData, result: resource }));
       setSaved(false);
     } catch (err) {
       setError(describeGeminiError(err));
@@ -66,14 +66,14 @@ const ActivityIdeas = () => {
     runGeneration();
   };
 
-  const toggleSave = () => {
+  const toggleSave = async () => {
     if (!entry) return;
-    if (saved) {
-      removeSavedContent(entry.id);
-    } else {
-      saveContent(entry);
-    }
     setSaved((prev) => !prev);
+    if (saved) {
+      await removeSavedContent(entry.id);
+    } else {
+      await saveContent(entry);
+    }
   };
 
   return (

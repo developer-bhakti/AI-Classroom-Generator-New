@@ -28,7 +28,7 @@ const subjectMap = {
 };
 
 const WorksheetGenerator = () => {
-  const [formData, setFormData] = useState({ topic: "Fractions", className: "Class 4", subject: "Math", difficultyLevel: "Medium", numberOfQuestions: "10", worksheetType: "Practice", learningObjectives: "Practice problem solving", additionalInstructions: "Keep language simple and age appropriate" });
+  const [formData, setFormData] = useState({ topic: "Fractions", className: "Class 4", subject: "Math", difficultyLevel: "Medium", worksheetType: "Practice", learningObjectives: "Practice problem solving", additionalInstructions: "Keep language simple and age appropriate" });
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [entry, setEntry] = useState(null);
@@ -52,7 +52,7 @@ const WorksheetGenerator = () => {
     try {
       const resource = await generateResource({ type: "worksheet", formData: { ...formData, topic: `${formData.subject}: ${formData.topic}` } });
       setResult(resource);
-      setEntry(recordHistory({ type: "worksheet", formData, result: resource }));
+      setEntry(await recordHistory({ type: "worksheet", formData, result: resource }));
       setSaved(false);
     } catch (err) {
       setError(describeGeminiError(err));
@@ -66,14 +66,14 @@ const WorksheetGenerator = () => {
     runGeneration();
   };
 
-  const toggleSave = () => {
+  const toggleSave = async () => {
     if (!entry) return;
-    if (saved) {
-      removeSavedContent(entry.id);
-    } else {
-      saveContent(entry);
-    }
     setSaved((prev) => !prev);
+    if (saved) {
+      await removeSavedContent(entry.id);
+    } else {
+      await saveContent(entry);
+    }
   };
 
   return (
@@ -100,8 +100,6 @@ const WorksheetGenerator = () => {
               <option value="Medium">Medium</option>
               <option value="Hard">Hard</option>
             </select>
-            <label>Number of Questions</label>
-            <input name="numberOfQuestions" value={formData.numberOfQuestions} onChange={handleChange} />
             <label>Worksheet Type</label>
             <input name="worksheetType" value={formData.worksheetType} onChange={handleChange} />
             <label>Learning Objectives</label>

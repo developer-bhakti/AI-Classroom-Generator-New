@@ -1,10 +1,17 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaGraduationCap, FaArrowRight, FaBookOpen, FaBrain, FaMagic } from "react-icons/fa";
 import { Eye, EyeOff, ScanLine, Moon, Sun } from "lucide-react";
+import { supabase, isSupabaseConfigured, SUPABASE_SETUP_MESSAGE } from "../Services/supabaseClient";
+import { describeAuthError } from "../Services/authErrors";
+import { logActivity } from "../Services/activityLog";
+import { useAuth } from "../context/useAuth";
+
+const landingPathFor = (role) => (role === "admin" ? "/admin" : "/dashboard");
 
 const Login = () => {
   const navigate = useNavigate();
+  const { session, profile, loading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -12,22 +19,53 @@ const Login = () => {
   const [theme, setTheme] = useState(() => document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light");
   const [message, setMessage] = useState("");
   const [showModal, setShowModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleLogin = (e) => {
-    e.preventDefault();
-    const expectedEmail = "adiuvaret@gmail.com";
-    const expectedPassword = "adiuvaret@123";
-
-    if (email.trim().toLowerCase() === expectedEmail && password === expectedPassword) {
-      localStorage.setItem("aiClassroomAuth", "true");
-      localStorage.setItem("adiuvaret-user", email);
-      setMessage("Signed in successfully.");
-      setShowModal(true);
-      navigate("/dashboard", { replace: true });
-    } else {
-      setMessage("Incorrect login ID or password. Please contact our team at info@adiuvaret.in or call +91 80879 24064 / +91 91751 84064.");
-      setShowModal(true);
+  useEffect(() => {
+    if (!loading && session && profile) {
+      navigate(landingPathFor(profile.role), { replace: true });
     }
+  }, [loading, session, profile, navigate]);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+
+    if (!isSupabaseConfigured) {
+      setMessage(SUPABASE_SETUP_MESSAGE);
+      setShowModal(true);
+      return;
+    }
+
+    if (!email.trim() || !password) {
+      setMessage("Please enter both your email and password.");
+      setShowModal(true);
+      return;
+    }
+
+    setSubmitting(true);
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password
+    });
+    setSubmitting(false);
+
+    if (error) {
+      setMessage(describeAuthError(error));
+      setShowModal(true);
+      return;
+    }
+
+    logActivity(data.user.id, "login");
+
+    // Read the role directly rather than waiting on the auth context, so an admin
+    // lands on the admin panel instead of flashing the teacher dashboard first.
+    const { data: signedInProfile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", data.user.id)
+      .single();
+
+    navigate(landingPathFor(signedInProfile?.role), { replace: true });
   };
 
   const handleSignUp = () => {
@@ -91,8 +129,8 @@ const Login = () => {
               <a href="#" className="link-text">Forgot Password?</a>
             </div>
 
-            <button type="submit" className="primary-btn full">
-              <FaGraduationCap /> Login
+            <button type="submit" className="primary-btn full" disabled={submitting}>
+              <FaGraduationCap /> {submitting ? "Signing in..." : "Login"}
               <FaArrowRight />
             </button>
 

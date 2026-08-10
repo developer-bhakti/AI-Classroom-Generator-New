@@ -27,11 +27,15 @@ ${JSON_REMINDER}`;
 };
 
 export const buildQuizPrompt = ({ topic, className, subject, duration, objective }) => {
-  return `Create a short quiz on "${topic}" for ${subject || "the subject"}, ${className || "the class"}, meant to fit a ${duration || "15 mins"} activity.
+  return `Create a short multiple-choice quiz on "${topic}" for ${subject || "the subject"}, ${className || "the class"}, meant to fit a ${duration || "15 mins"} activity.
 It should assess: ${objective || "understanding of the topic"}.
-Structure the response as JSON with a "title", a one-sentence "summary", and a "sections" array containing exactly these sections in order:
-1. "Questions" — 8 to 10 numbered questions of varying difficulty, using clear classroom examples, one correct answer implied per question.
-2. "Answer Key" — a numbered answer for each question, kept brief.
+Create 8 to 10 multiple-choice questions of varying difficulty, using clear classroom examples.
+Structure the response as JSON with a "title", a one-sentence "summary", and a "questions" array. Each item in "questions" must be an object with:
+- "question": the question text
+- "options": an array of exactly 4 answer choices as strings, in a shuffled (non-obvious) order
+- "correctIndex": the 0-based index into "options" of the one correct answer
+
+Exactly one option per question must be correct; the other three should be plausible but clearly wrong distractors.
 
 ${JSON_REMINDER}`;
 };

@@ -1,27 +1,81 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../Components/Navbar";
 import Sidebar from "../Components/Sidebar";
-import { Eye, EyeOff, Check } from "lucide-react";
+import { Eye, EyeOff, Check, AlertTriangle } from "lucide-react";
+import { useAuth } from "../context/useAuth";
+import { supabase } from "../Services/supabaseClient";
+import { describeAuthError } from "../Services/authErrors";
 
 const Profile = () => {
-  const [name, setName] = useState(() => localStorage.getItem("adiuvaret-name") || "Teacher");
-  const [draftName, setDraftName] = useState(name);
+  const { user, profile, isAdmin, refreshProfile } = useAuth();
+  const [draftName, setDraftName] = useState("");
+  const [savingName, setSavingName] = useState(false);
+  const [nameSaved, setNameSaved] = useState(false);
+  const [nameError, setNameError] = useState(null);
+
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState(null);
 
-  const email = localStorage.getItem("adiuvaret-user") || "adiuvaret@gmail.com";
-  const password = localStorage.getItem("adiuvaret-password") || "adiuvaret@123";
-  const initials = (draftName || "T").trim().slice(0, 1).toUpperCase();
+  useEffect(() => {
+    if (profile?.full_name) setDraftName(profile.full_name);
+  }, [profile?.full_name]);
 
-  const handleSave = (e) => {
+  const email = profile?.email || user?.email || "";
+  const name = profile?.full_name || email.split("@")[0] || "Teacher";
+  const initials = (draftName || name || "T").trim().slice(0, 1).toUpperCase();
+
+  const handleSaveName = async (e) => {
     e.preventDefault();
-    const trimmed = draftName.trim() || "Teacher";
-    localStorage.setItem("adiuvaret-name", trimmed);
-    setName(trimmed);
-    setDraftName(trimmed);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    const trimmed = draftName.trim();
+    if (!trimmed || trimmed === profile?.full_name) return;
+
+    setSavingName(true);
+    setNameError(null);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ full_name: trimmed })
+      .eq("id", user.id);
+    setSavingName(false);
+
+    if (error) {
+      setNameError(describeAuthError(error));
+      return;
+    }
+
+    await refreshProfile();
+    setNameSaved(true);
+    setTimeout(() => setNameSaved(false), 2000);
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setPasswordMessage(null);
+
+    if (newPassword.length < 6) {
+      setPasswordMessage({ type: "error", text: "Your new password must be at least 6 characters." });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordMessage({ type: "error", text: "Passwords do not match." });
+      return;
+    }
+
+    setSavingPassword(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setSavingPassword(false);
+
+    if (error) {
+      setPasswordMessage({ type: "error", text: describeAuthError(error) });
+      return;
+    }
+
+    setNewPassword("");
+    setConfirmPassword("");
+    setPasswordMessage({ type: "success", text: "Your password has been updated." });
   };
 
   return (
@@ -36,40 +90,95 @@ const Profile = () => {
             <p>This is how you appear across Adiuvaret. Looking for themes or notifications instead? <Link to="/settings" className="link-text">Open Settings</Link></p>
           </section>
 
-          <div className="panel-card settings-card" style={{ maxWidth: 520 }}>
-            <div className="profile-header-row">
-              <div className="profile-avatar">{initials}</div>
-              <div>
-                <h3>{name}</h3>
-                <p className="content-row-meta">{email}</p>
+          <div className="settings-grid">
+            <div className="panel-card settings-card">
+              <div className="profile-header-row">
+                <div className="profile-avatar">{initials}</div>
+                <div>
+                  <h3>{name}</h3>
+                  <p className="content-row-meta">{email}</p>
+                </div>
               </div>
+
+              <form onSubmit={handleSaveName}>
+                <div className="field-row">
+                  <label>Display name</label>
+                  <input value={draftName} onChange={(e) => setDraftName(e.target.value)} placeholder="Your name" />
+                </div>
+
+                <div className="field-row">
+                  <label>Email</label>
+                  <div className="field-static">{email}</div>
+                </div>
+
+                <div className="field-row">
+                  <label>Role</label>
+                  <div className="field-static">
+                    <span className={`role-pill ${isAdmin ? "admin" : ""}`}>{isAdmin ? "Admin" : "Educator"}</span>
+                  </div>
+                </div>
+
+                {nameError ? <p className="inline-error"><AlertTriangle size={14} /> {nameError}</p> : null}
+
+                <div className="form-actions">
+                  <button
+                    type="submit"
+                    className="primary-btn"
+                    disabled={savingName || !draftName.trim() || draftName.trim() === profile?.full_name}
+                  >
+                    {nameSaved ? <><Check size={16} /> Saved</> : savingName ? "Saving..." : "Save changes"}
+                  </button>
+                </div>
+              </form>
             </div>
 
-            <form onSubmit={handleSave}>
-              <div className="field-row">
-                <label>Display name</label>
-                <input value={draftName} onChange={(e) => setDraftName(e.target.value)} placeholder="Your name" />
+            <div className="panel-card settings-card">
+              <div className="settings-card-header">
+                <div>
+                  <h3>Change password</h3>
+                  <p>Pick something at least 6 characters long.</p>
+                </div>
               </div>
 
-              <div className="field-row">
-                <label>Email</label>
-                <div className="field-static">{email}</div>
-              </div>
+              <form onSubmit={handleChangePassword}>
+                <div className="field-row">
+                  <label>New password</label>
+                  <div className="password-field">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="New password"
+                    />
+                    <button type="button" className="password-toggle" onClick={() => setShowPassword((prev) => !prev)}>
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
 
-              <div className="field-row">
-                <label>Password</label>
-                <button type="button" className="settings-password-row field-static" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }} onClick={() => setShowPassword((prev) => !prev)}>
-                  <span>{showPassword ? password : "••••••••"}</span>
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
+                <div className="field-row">
+                  <label>Confirm new password</label>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm new password"
+                  />
+                </div>
 
-              <div className="form-actions">
-                <button type="submit" className="primary-btn" disabled={draftName.trim() === name && !saved}>
-                  {saved ? <><Check size={16} /> Saved</> : "Save changes"}
-                </button>
-              </div>
-            </form>
+                {passwordMessage ? (
+                  <p className={passwordMessage.type === "error" ? "inline-error" : "inline-success"}>
+                    {passwordMessage.type === "error" ? <AlertTriangle size={14} /> : <Check size={14} />} {passwordMessage.text}
+                  </p>
+                ) : null}
+
+                <div className="form-actions">
+                  <button type="submit" className="primary-btn" disabled={savingPassword || !newPassword}>
+                    {savingPassword ? "Updating..." : "Update password"}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       </main>

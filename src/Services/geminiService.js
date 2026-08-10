@@ -38,6 +38,29 @@ const RESULT_SCHEMA = {
   propertyOrdering: ["title", "summary", "sections"]
 };
 
+const QUIZ_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    title: { type: "STRING" },
+    summary: { type: "STRING" },
+    questions: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          question: { type: "STRING" },
+          options: { type: "ARRAY", items: { type: "STRING" } },
+          correctIndex: { type: "INTEGER" }
+        },
+        required: ["question", "options", "correctIndex"],
+        propertyOrdering: ["question", "options", "correctIndex"]
+      }
+    }
+  },
+  required: ["title", "summary", "questions"],
+  propertyOrdering: ["title", "summary", "questions"]
+};
+
 const SYSTEM_INSTRUCTION = "You are an expert curriculum designer creating classroom-ready teaching resources for school teachers. Always respond with a single JSON object matching the provided response schema exactly. Do not include markdown formatting, code fences, or commentary outside the JSON.";
 
 const isPlainObject = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
@@ -49,7 +72,23 @@ const validateShape = (data) => {
   return data.sections.every((section) => isPlainObject(section) && typeof section.heading === "string" && Array.isArray(section.items) && section.items.every((item) => typeof item === "string"));
 };
 
-export const generateStructuredContent = async (prompt) => {
+const validateQuizShape = (data) => {
+  if (!isPlainObject(data)) return false;
+  if (typeof data.title !== "string" || typeof data.summary !== "string") return false;
+  if (!Array.isArray(data.questions) || data.questions.length === 0) return false;
+  return data.questions.every((q) => (
+    isPlainObject(q) &&
+    typeof q.question === "string" &&
+    Array.isArray(q.options) &&
+    q.options.length === 4 &&
+    q.options.every((option) => typeof option === "string") &&
+    Number.isInteger(q.correctIndex) &&
+    q.correctIndex >= 0 &&
+    q.correctIndex < 4
+  ));
+};
+
+const requestGeminiJSON = async (prompt, schema) => {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
   if (!apiKey) {
     throw new GeminiConfigError("No Gemini API key found. Add VITE_GEMINI_API_KEY to your .env file and restart the dev server.");
@@ -72,7 +111,7 @@ export const generateStructuredContent = async (prompt) => {
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         generationConfig: {
           responseMimeType: "application/json",
-          responseSchema: RESULT_SCHEMA,
+          responseSchema: schema,
           temperature: 0.7,
           maxOutputTokens: 4096
         }
@@ -125,12 +164,15 @@ export const generateStructuredContent = async (prompt) => {
     throw new GeminiResponseError("Gemini returned an empty response. Try again.");
   }
 
-  let parsed;
   try {
-    parsed = JSON.parse(text);
+    return JSON.parse(text);
   } catch {
     throw new GeminiResponseError("Gemini returned an unexpected format. Try again.");
   }
+};
+
+export const generateStructuredContent = async (prompt) => {
+  const parsed = await requestGeminiJSON(prompt, RESULT_SCHEMA);
 
   if (!validateShape(parsed)) {
     throw new GeminiResponseError("Gemini returned an unexpected format. Try again.");
@@ -140,5 +182,19 @@ export const generateStructuredContent = async (prompt) => {
     title: parsed.title,
     summary: parsed.summary,
     sections: parsed.sections.map((section) => ({ heading: section.heading, items: section.items }))
+  };
+};
+
+export const generateQuizContent = async (prompt) => {
+  const parsed = await requestGeminiJSON(prompt, QUIZ_SCHEMA);
+
+  if (!validateQuizShape(parsed)) {
+    throw new GeminiResponseError("Gemini returned an unexpected format. Try again.");
+  }
+
+  return {
+    title: parsed.title,
+    summary: parsed.summary,
+    questions: parsed.questions.map((q) => ({ question: q.question, options: q.options, correctIndex: q.correctIndex }))
   };
 };

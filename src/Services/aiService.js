@@ -5,7 +5,7 @@ import {
   buildActivityPrompt,
   buildExamPrompt
 } from "./promptBuilder";
-import { generateStructuredContent } from "./geminiService";
+import { generateStructuredContent, generateQuizContent } from "./geminiService";
 import { getLanguage } from "./contentStore";
 
 const formatTopic = (value) => value?.split(": ").pop()?.trim() || value || "your topic";
@@ -38,9 +38,27 @@ export const generateResource = async ({ type, formData }) => {
     prompt += `\n\nWrite the entire response in ${language} — the title, summary, and every section heading and item — not just a translation note. Keep numbers, formulas, and proper nouns in their standard form.`;
   }
 
-  const { title, summary, sections } = await generateStructuredContent(prompt);
   const baseNote = NOTE_BUILDERS[type]?.(formData) || "";
   const note = language !== "English" ? `${baseNote}${baseNote ? " • " : ""}Generated in ${language}` : baseNote;
+
+  if (type === "quiz") {
+    const { title, summary, questions } = await generateQuizContent(prompt);
+    const sections = [{
+      heading: "Questions",
+      items: questions.map((q, index) => `${index + 1}. ${q.question} — Answer: ${q.options[q.correctIndex]}`)
+    }];
+
+    return {
+      title: title || `${formatTopic(formData.topic)} quiz`,
+      summary,
+      sections,
+      questions,
+      note,
+      prompt
+    };
+  }
+
+  const { title, summary, sections } = await generateStructuredContent(prompt);
 
   return {
     title: title || `${formatTopic(formData.topic)} ${type}`,

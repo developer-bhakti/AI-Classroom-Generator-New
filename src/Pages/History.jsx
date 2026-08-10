@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useSyncExternalStore } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../Components/Navbar";
 import Sidebar from "../Components/Sidebar";
@@ -18,12 +18,12 @@ import {
 } from "lucide-react";
 import {
   RESOURCE_TYPES,
-  getHistory,
   clearHistory,
   removeHistoryEntry,
   saveContent,
   removeSavedContent,
-  isContentSaved
+  subscribeContentStore,
+  getContentSnapshot
 } from "../Services/contentStore";
 
 const TYPE_ICONS = {
@@ -40,11 +40,10 @@ const formatDateTime = (iso) => {
 };
 
 const History = () => {
-  const [items, setItems] = useState(() => getHistory());
+  const { history: items } = useSyncExternalStore(subscribeContentStore, getContentSnapshot);
   const [activeType, setActiveType] = useState("all");
   const [query, setQuery] = useState("");
   const [preview, setPreview] = useState(null);
-  const [savedIds, setSavedIds] = useState(() => new Set(items.filter((item) => isContentSaved(item.id)).map((item) => item.id)));
 
   const filtered = useMemo(() => {
     return items.filter((item) => {
@@ -55,30 +54,23 @@ const History = () => {
     });
   }, [items, activeType, query]);
 
-  const toggleSave = (item) => {
-    setSavedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(item.id)) {
-        removeSavedContent(item.id);
-        next.delete(item.id);
-      } else {
-        saveContent(item);
-        next.add(item.id);
-      }
-      return next;
-    });
+  const toggleSave = async (item) => {
+    if (item.isSaved) {
+      await removeSavedContent(item.id);
+    } else {
+      await saveContent(item);
+    }
   };
 
-  const handleRemoveEntry = (id) => {
-    setItems(removeHistoryEntry(id));
+  const handleRemoveEntry = async (id) => {
     setPreview((current) => (current?.id === id ? null : current));
+    await removeHistoryEntry(id);
   };
 
-  const handleClearHistory = () => {
+  const handleClearHistory = async () => {
     if (items.length === 0) return;
-    if (window.confirm("Clear your entire generation history? Saved content won't be affected.")) {
-      clearHistory();
-      setItems([]);
+    if (window.confirm("Clear your generation history? Saved content won't be affected.")) {
+      await clearHistory();
     }
   };
 
@@ -134,7 +126,7 @@ const History = () => {
               {filtered.map((item) => {
                 const Icon = TYPE_ICONS[item.type] || FileText;
                 const meta = RESOURCE_TYPES[item.type];
-                const saved = savedIds.has(item.id);
+                const saved = item.isSaved;
                 return (
                   <div key={item.id} className="panel-card content-row">
                     <div className="resource-icon"><Icon size={20} /></div>
