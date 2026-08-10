@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FaGraduationCap, FaArrowRight, FaBookOpen, FaBrain, FaMagic } from "react-icons/fa";
 import { Eye, EyeOff, Moon, Sun } from "lucide-react";
-import { supabase, isSupabaseConfigured, SUPABASE_SETUP_MESSAGE } from "../Services/supabaseClient";
+import { supabase, isSupabaseConfigured, SUPABASE_SETUP_MESSAGE, emailRedirectTo } from "../Services/supabaseClient";
 import { describeAuthError } from "../Services/authErrors";
 import { logActivity } from "../Services/activityLog";
 
@@ -56,7 +56,10 @@ const SignUp = () => {
     const { data, error } = await supabase.auth.signUp({
       email: formData.email.trim().toLowerCase(),
       password: formData.password,
-      options: { data: { full_name: formData.name.trim() } }
+      options: {
+        data: { full_name: formData.name.trim() },
+        emailRedirectTo
+      }
     });
     setSubmitting(false);
 
@@ -67,7 +70,7 @@ const SignUp = () => {
     }
 
     if (!data.session) {
-      setMessage("Account created. Please check your email to confirm your address, then log in.");
+      setMessage(`Almost there — we've sent a confirmation link to ${formData.email.trim()}. Click it to activate your account, then you'll be signed in automatically.`);
       setShowModal(true);
       return;
     }

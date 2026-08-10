@@ -13,7 +13,15 @@ export const supabase = isSupabaseConfigured
       auth: {
         persistSession: true,
         autoRefreshToken: true,
-        detectSessionInUrl: false
+        // Confirmation / recovery links come back as #access_token=... in the URL.
+        // This consumes them into a session and strips the hash. Turning it off
+        // makes a confirmed user land signed-out.
+        detectSessionInUrl: true
       }
     })
   : null;
+
+// Where Supabase should send users after they click an email link. Derived from the
+// current origin so localhost and the deployed domain each redirect to themselves —
+// both must be listed under Authentication -> URL Configuration -> Redirect URLs.
+export const emailRedirectTo = typeof window !== "undefined" ? `${window.location.origin}/` : undefined;

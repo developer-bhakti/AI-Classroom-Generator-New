@@ -22,11 +22,53 @@ placeholder amounts (₹499 / ₹1,299 / ₹2,399 / ₹4,299). Already ran it? C
 update public.plans set price_inr = 599 where code = '1m';
 ```
 
-## 2. Turn off email confirmation
+## 2. Decide on email confirmation
 
-Dashboard → **Authentication → Sign In / Providers → Email** → turn **off** "Confirm email" → Save.
+Dashboard → **Authentication → Sign In / Providers → Email** → "Confirm email".
 
-Without this, a new signup can't log in until they click a confirmation email.
+- **Off** — signup logs the user straight in. Fastest for testing.
+- **On** — the user must click a link in their inbox first. Better for a public site.
+  The app supports this: it shows a "check your inbox" message after signup, and the
+  confirmation link signs them in automatically.
+
+If you leave it on, step 3 below is mandatory.
+
+## 2b. Set your URLs (required once you deploy)
+
+**This is what makes confirmation links point at `localhost:3000` instead of your real
+site.** The link uses Supabase's configured Site URL, not the domain the user signed up on.
+
+Dashboard → **Authentication → URL Configuration**:
+
+- **Site URL** → `https://ai-classroom-generator.adiuvaretfoundation.com`
+- **Redirect URLs** → add both, one per line:
+  ```
+  https://ai-classroom-generator.adiuvaretfoundation.com/**
+  http://localhost:5173/**
+  ```
+
+Keep the localhost entry so signup still works while developing. The app sends its own
+`emailRedirectTo` based on whichever origin you signed up from, but Supabase only honours
+values that match this allowlist — anything else silently falls back to Site URL.
+
+## 2c. Brand the emails
+
+Supabase's default emails are unstyled plain text. Ready-made HTML matching the app is in
+[`email-templates/`](email-templates):
+
+| File | Paste into Authentication → Emails → |
+|---|---|
+| `confirm-signup.html` | Confirm signup |
+| `reset-password.html` | Reset password |
+| `magic-link.html` | Magic Link |
+
+Paste the file contents into the **Message body** field and save. Suggested subject lines
+are in a comment at the top of each file. `{{ .ConfirmationURL }}` and `{{ .Email }}` are
+Supabase variables — leave them exactly as they are.
+
+> On Supabase's built-in email service, delivery is rate-limited (a few messages per hour)
+> and messages often land in spam because they're sent from a shared domain. For real
+> users, connect your own SMTP under **Project Settings → Authentication → SMTP Settings**.
 
 ## 3. Fill in the client env vars
 
