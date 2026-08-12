@@ -1296,6 +1296,122 @@ textarea:focus {
   gap: 12px;
 }
 
+.mode-toggle {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+}
+
+.mode-toggle button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 1;
+  padding: 9px 12px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.85rem;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.mode-toggle button.active {
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 100%);
+  color: white;
+  box-shadow: 0 6px 16px rgba(75, 123, 229, 0.24);
+}
+
+.palette-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.palette-dot {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 12%, transparent);
+}
+
+/* Tinted by --resource-accent, set per subject/class from worksheetPalette.js.
+   Mixed against the opaque surface so the shade stays true in both themes, plus an inset
+   top bar in the raw accent so the class/subject colour is unmistakable at a glance. */
+.themed-output {
+  border-color: color-mix(in srgb, var(--resource-accent) 40%, var(--border));
+  background: color-mix(in srgb, var(--resource-accent) 14%, var(--surface-strong));
+  box-shadow:
+    inset 0 5px 0 0 var(--resource-accent),
+    0 20px 45px var(--shadow);
+  transition: border-color 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
+}
+
+[data-theme="dark"] .themed-output {
+  background: color-mix(in srgb, var(--resource-accent) 20%, var(--surface-strong));
+}
+
+/* .panel-card:hover outranks .themed-output, so the inset bar has to be restated here. */
+.themed-output:hover {
+  box-shadow:
+    inset 0 5px 0 0 var(--resource-accent),
+    0 16px 32px var(--shadow);
+}
+
+.themed-output .output-card-header h3,
+.themed-output .output-section h4 {
+  color: var(--resource-ink);
+}
+
+.themed-output .output-section {
+  border-top-color: color-mix(in srgb, var(--resource-accent) 40%, transparent);
+}
+
+.themed-output .note {
+  color: var(--resource-ink);
+}
+
+.themed-output .save-toggle-btn {
+  background: color-mix(in srgb, var(--resource-accent) 22%, transparent);
+  color: var(--resource-ink);
+}
+
+.themed-output .save-toggle-btn.active {
+  background: var(--resource-accent);
+  color: white;
+}
+
+[data-theme="dark"] .themed-output .output-card-header h3,
+[data-theme="dark"] .themed-output .output-section h4,
+[data-theme="dark"] .themed-output .note,
+[data-theme="dark"] .themed-output .save-toggle-btn {
+  color: var(--resource-glow);
+}
+
+.worksheet-image-frame {
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--resource-accent, var(--accent)) 30%, var(--border));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--resource-accent, var(--accent)) 8%, var(--surface-soft));
+}
+
+.worksheet-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
 .empty-state-card {
   display: flex;
   flex-direction: column;

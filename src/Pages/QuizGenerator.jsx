@@ -5,6 +5,7 @@ import { Bookmark, BookmarkCheck, AlertTriangle, PlayCircle, CheckCircle2, XCirc
 import { generateResource } from "../Services/aiService";
 import { describeGeminiError } from "../Services/geminiService";
 import { recordHistory, saveContent, removeSavedContent } from "../Services/contentStore";
+import { getResourcePalette } from "../Services/resourcePalette";
 
 const classOptions = ["PG", "Nursery", "LKG", "UKG", ...Array.from({ length: 12 }, (_, index) => `Class ${index + 1}`)];
 
@@ -36,12 +37,17 @@ const QuizGenerator = () => {
   const [entry, setEntry] = useState(null);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState(null);
+  const [outputPalette, setOutputPalette] = useState(null);
 
   const [stage, setStage] = useState("preview"); // preview | active | results
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState([]);
 
   const subjects = useMemo(() => subjectMap[formData.className] || [], [formData.className]);
+  // The form previews the colour live; once generated the card keeps the palette it was
+  // generated with, so editing the dropdowns cannot re-tint output already on screen.
+  const formPalette = useMemo(() => getResourcePalette({ ...formData, type: "quiz" }), [formData]);
+  const palette = outputPalette || formPalette;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -60,6 +66,7 @@ const QuizGenerator = () => {
       setResult(resource);
       setEntry(await recordHistory({ type: "quiz", formData, result: resource }));
       setSaved(false);
+      setOutputPalette(formPalette);
       setStage("preview");
       setCurrentIndex(0);
       setAnswers(new Array(resource.questions?.length || 0).fill(null));
@@ -150,7 +157,7 @@ const QuizGenerator = () => {
             <button className="primary-btn full" type="submit">Generate quiz</button>
           </form>
 
-          <div className="panel-card output-card">
+          <div className="panel-card output-card themed-output" style={{ "--resource-accent": palette.hex, "--resource-ink": palette.ink, "--resource-glow": palette.glow }}>
             {loading ? (
               <div className="loading-state">
                 <div className="spinner" />

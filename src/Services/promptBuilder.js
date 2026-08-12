@@ -1,3 +1,5 @@
+import { getResourcePalette } from "./resourcePalette";
+
 const JSON_REMINDER = "Respond only with the requested JSON structure — no markdown, no extra commentary.";
 
 export const buildWorksheetPrompt = ({ topic, className, subject, difficultyLevel, numberOfQuestions, worksheetType, learningObjectives, additionalInstructions }) => {
@@ -12,6 +14,34 @@ Learning objective / focus: ${learningObjectives || "help students build a solid
 Additional instructions from the teacher: ${additionalInstructions || "none"}.
 
 ${JSON_REMINDER}`;
+};
+
+// Image models are told to *draw the page*, not to describe it — hence the layout-first
+// wording and the explicit "no photo, no mockup, no 3D" guardrails.
+export const buildWorksheetImagePrompt = ({ topic, className, subject, difficultyLevel, numberOfQuestions, worksheetType, learningObjectives, additionalInstructions }) => {
+  const palette = getResourcePalette({ className, subject });
+
+  return `Design a single, ready-to-print A4 portrait classroom worksheet page about "${topic}".
+
+The page must look like a real photocopiable worksheet handed out by a teacher — a flat, straight-on, full-bleed scan of the sheet itself. Not a photo of paper on a desk, not a 3D mockup, no shadows, no curled corners, no hands, no background scene.
+
+Audience: ${className || "primary school"} students studying ${subject || "this topic"}. Worksheet style: ${worksheetType || "practice"}. Difficulty: ${difficultyLevel || "Medium"}.
+Learning focus: ${learningObjectives || "build a solid understanding of the topic"}.
+Extra instructions from the teacher: ${additionalInstructions || "none"}.
+
+Lay the page out top to bottom:
+- A bold title banner reading the worksheet topic, filled in the accent colour with the title text reversed out in white, and small "Name: ____________" and "Date: __________" lines underneath.
+- A one-line instruction telling students what to do.
+- Around ${numberOfQuestions || 8} numbered exercises spread over 2-3 clearly labelled sections, each section introduced by its own coloured header band. Give every exercise generous ruled blank space, answer boxes or write-on lines outlined in the accent colour. Mix the question formats — fill in the blanks, match the pairs, short answers, a small table or grid.
+- Two or three simple, friendly illustrations related to the topic, placed in the margins or beside the questions so they never sit on top of the text.
+
+Colour scheme — the page must look colourful, not black and white:
+- Build the whole page around exactly this accent colour: ${palette.name}, hex ${palette.hex}. Match that shade closely — it is what distinguishes a ${className || "class"} sheet from every other class's sheet in the same subject.
+- Tint the paper background a pale, washed-out version of that same colour rather than leaving it plain white, and use slightly deeper tints of it to shade alternating section blocks, answer boxes and table rows so the sections are easy to tell apart.
+- ${palette.tone}.
+- Use tints and shades of the one accent colour throughout so the page reads as a single coordinated palette — never a rainbow of unrelated colours.
+
+Typography: crisp, perfectly spelled, correctly formed printed text in a clean sans-serif, large enough to read easily. Keep all body text near-black and strongly contrasted against its tinted background so the sheet still photocopies and reads clearly — colour goes in the backgrounds, headers, borders and illustrations, never in the body text. Every line of text must be real, legible, correctly spelled words — never scribbles, placeholder squiggles or invented letters. Do not add any watermark, logo, page number, signature or website URL.`;
 };
 
 export const buildLessonPrompt = ({ topic, className, subject, duration, objective }) => {

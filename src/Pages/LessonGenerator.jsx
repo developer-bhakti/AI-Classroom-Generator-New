@@ -5,6 +5,7 @@ import { Bookmark, BookmarkCheck, AlertTriangle } from "lucide-react";
 import { generateResource } from "../Services/aiService";
 import { describeGeminiError } from "../Services/geminiService";
 import { recordHistory, saveContent, removeSavedContent } from "../Services/contentStore";
+import { getResourcePalette } from "../Services/resourcePalette";
 
 const classOptions = ["PG", "Nursery", "LKG", "UKG", ...Array.from({ length: 12 }, (_, index) => `Class ${index + 1}`)];
 
@@ -34,8 +35,13 @@ const LessonGenerator = () => {
   const [entry, setEntry] = useState(null);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState(null);
+  const [outputPalette, setOutputPalette] = useState(null);
 
   const subjects = useMemo(() => subjectMap[formData.className] || [], [formData.className]);
+  // The form previews the colour live; once generated the card keeps the palette it was
+  // generated with, so editing the dropdowns cannot re-tint output already on screen.
+  const formPalette = useMemo(() => getResourcePalette({ ...formData, type: "lesson" }), [formData]);
+  const palette = outputPalette || formPalette;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -54,6 +60,7 @@ const LessonGenerator = () => {
       setResult(resource);
       setEntry(await recordHistory({ type: "lesson", formData, result: resource }));
       setSaved(false);
+      setOutputPalette(formPalette);
     } catch (err) {
       setError(describeGeminiError(err));
     } finally {
@@ -101,7 +108,7 @@ const LessonGenerator = () => {
             <button className="primary-btn full" type="submit">Generate lesson plan</button>
           </form>
 
-          <div className="panel-card output-card">
+          <div className="panel-card output-card themed-output" style={{ "--resource-accent": palette.hex, "--resource-ink": palette.ink, "--resource-glow": palette.glow }}>
             {loading ? (
               <div className="loading-state">
                 <div className="spinner" />

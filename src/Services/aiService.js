@@ -1,11 +1,12 @@
 import {
   buildWorksheetPrompt,
+  buildWorksheetImagePrompt,
   buildLessonPrompt,
   buildQuizPrompt,
   buildActivityPrompt,
   buildExamPrompt
 } from "./promptBuilder";
-import { generateStructuredContent, generateQuizContent } from "./geminiService";
+import { generateStructuredContent, generateQuizContent, generateImage } from "./geminiService";
 import { getLanguage } from "./contentStore";
 
 const formatTopic = (value) => value?.split(": ").pop()?.trim() || value || "your topic";
@@ -16,6 +17,10 @@ const PROMPT_BUILDERS = {
   quiz: buildQuizPrompt,
   activity: buildActivityPrompt,
   exam: buildExamPrompt
+};
+
+const IMAGE_PROMPT_BUILDERS = {
+  worksheet: buildWorksheetImagePrompt
 };
 
 const NOTE_BUILDERS = {
@@ -65,6 +70,34 @@ export const generateResource = async ({ type, formData }) => {
     summary,
     sections,
     note,
+    prompt
+  };
+};
+
+/**
+ * Same inputs as generateResource, but the model draws the finished page instead of
+ * returning structured text. Returns a data: URL ready for an <img> or a download link.
+ */
+export const generateResourceImage = async ({ type, formData }) => {
+  const buildPrompt = IMAGE_PROMPT_BUILDERS[type];
+  if (!buildPrompt) {
+    throw new Error(`Image generation is not supported for resource type: ${type}`);
+  }
+
+  const language = getLanguage();
+  let prompt = buildPrompt(formData);
+  if (language !== "English") {
+    prompt += `\n\nEvery word printed on the page — the title, the instructions, the questions and the labels — must be written in ${language}, spelled correctly in that language's own script. Keep numbers, formulas and proper nouns in their standard form.`;
+  }
+
+  const { dataUrl, mimeType } = await generateImage(prompt);
+  const baseNote = NOTE_BUILDERS[type]?.(formData) || "";
+
+  return {
+    dataUrl,
+    mimeType,
+    title: `${formatTopic(formData.topic)} worksheet`,
+    note: language !== "English" ? `${baseNote}${baseNote ? " • " : ""}Generated in ${language}` : baseNote,
     prompt
   };
 };

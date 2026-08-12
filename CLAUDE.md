@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 There is no test runner configured in this project.
 
 Requires a `.env` file (see `.env.example`) with:
-- `VITE_GEMINI_API_KEY` — from https://aistudio.google.com/apikey (optional `VITE_GEMINI_MODEL`, defaults to `gemini-flash-latest`)
+- `VITE_GEMINI_API_KEY` — from https://aistudio.google.com/apikey (optional `VITE_GEMINI_MODEL`, defaults to `gemini-flash-latest`; optional `VITE_GEMINI_IMAGE_MODEL`, defaults to `gemini-3.1-flash-image`). **Gemini image models are not on the free tier** — their free-tier quota is literally 0, so worksheet-image generation 429s until billing is enabled on the key's Google Cloud project. Text generation is unaffected.
 - `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` — Supabase Project Settings → API
 - `VITE_RAZORPAY_KEY_ID` — Razorpay API keys (the Key **Secret** must never go here; see `supabase/README.md`)
 
@@ -33,6 +33,19 @@ Every generator page (`WorksheetGenerator`, `LessonGenerator`, `QuizGenerator`, 
 5. The page renders the result and can call `recordHistory()` / `saveContent()` from `src/Services/contentStore.js` to persist it.
 
 To add a new resource type: add a prompt builder in `promptBuilder.js`, register it in `PROMPT_BUILDERS` (and `NOTE_BUILDERS`) in `aiService.js`, add an entry to `RESOURCE_TYPES` in `contentStore.js`, and wire up a page + route.
+
+**Image output.** `WorksheetGenerator` has a second, parallel path: `generateResourceImage({ type, formData })` in `aiService.js` builds a *layout* prompt (`buildWorksheetImagePrompt`) and calls `generateImage()` in `geminiService.js`, which hits a Gemini image model and returns a base64 `data:` URL. Both paths share `postToGemini()`, so image calls raise the same typed errors and route through `describeGeminiError()`. Image mode is the page's default; the "Text worksheet" toggle restores the structured-JSON path. Only image mode exists for worksheets — extend `IMAGE_PROMPT_BUILDERS` to add more. Images are **not** persisted: `generated_content` stores text columns only, and a base64 page would be megabytes per row, so image results are session-only and offered as a download instead of a Save.
+
+**Resource colour scheme.** `src/Services/resourcePalette.js` is the single source of truth, used by **all five generator pages**. `getResourcePalette({ className, subject, type })` composes three dimensions into one shade:
+- **subject** → the hue family (Math → royal blue, Biology → emerald, …). `Social Studies` and `Social Science` both exist in the pages' `subjectMap`s and both must stay mapped.
+- **class** → the shade within it, walking a lightness/saturation ramp plus a small hue drift from PG (bright pastel) to Class 12 (deep).
+- **resource type** → a small hue offset (`TYPE_HUE_OFFSETS`, ±24° max) so a lesson plan and a quiz for the same class don't look identical.
+
+All 880 type×class×subject combinations resolve to distinct hexes. Keep the type offsets small — larger values push a subject out of its recognisable hue family.
+
+It returns three colours: `hex` (the shade), plus fixed-lightness `ink` (L24) and `glow` (L78) for text. Text must use `ink`/`glow` rather than mixing `hex` toward the foreground — `hex` ranges from very light to very dark across the ramp, so a mix-based text colour drops below contrast minimums at the light end (the amber/yellow subjects are the binding constraint). As tuned, the worst pair is 5.03:1 (light) and 5.77:1 (dark); re-run a full sweep after changing `LIGHTEST`/`DARKEST`/`ink`/`glow`.
+
+Each page sets `--resource-accent` / `--resource-ink` / `--resource-glow` on its output card and adds `themed-output`; `.themed-output` in `index.css` uses them for the background tint, border, inset top bar, headings and note. Two gotchas: `.panel-card:hover` outranks `.themed-output`, so the inset bar is restated in `.themed-output:hover`; and `.exam-preview-card` sets its own `background`, so `.themed-output` only wins there because it is declared later in the file. Each page pins the palette at generation time (`outputPalette`) so editing the dropdowns afterwards can't re-tint output that's already on screen. `buildWorksheetImagePrompt` additionally feeds the colour name + hex + band tone into the image prompt.
 
 Gemini error handling is centralized: `geminiService.js` throws typed errors (`GeminiConfigError`, `GeminiAuthError`, `GeminiRateLimitError`, `GeminiNetworkError`, `GeminiResponseError`), and `describeGeminiError()` converts them to a user-facing message. Generator pages catch errors from `generateResource` and render the result of `describeGeminiError(err)`.
 
