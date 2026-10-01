@@ -49,11 +49,29 @@ Each page sets `--resource-accent` / `--resource-ink` / `--resource-glow` on its
 
 Gemini error handling is centralized: `geminiService.js` throws typed errors (`GeminiConfigError`, `GeminiAuthError`, `GeminiRateLimitError`, `GeminiNetworkError`, `GeminiResponseError`), and `describeGeminiError()` converts them to a user-facing message. Generator pages catch errors from `generateResource` and render the result of `describeGeminiError(err)`.
 
+### Student assessment (`/assessment`, `/students`)
+
+A separate pipeline from the five resource generators: a teacher runs an AI-written paper against a **student** (a roster row in `students`, no login of their own), the app marks it, finds weak skills, optionally teaches them with an AI chat, re-tests, and tracks it all per child. Both routes need a subscription. The dashboard links in via `/assessment?type=end_term|current`, which skips the type chooser.
+
+Flow, in `src/Pages/Assessment.jsx` (a stage machine: `choose → setup → generating → taking → evaluating → results → teaching → practice-generating → practice-taking → practice-evaluating → practice-results`):
+- `assessmentService.js` orchestrates; `assessmentPrompts.js` holds the prompts; `assessmentGrading.js` is pure logic (no network); `studentService.js` is the Supabase layer; `assessmentPdf.js` builds the PDF; `syllabus.js` holds topic lists; `curriculum.js` holds the class/subject lists.
+- **Scoring is deterministic.** `checkAnswer()` marks against the answer key locally. The AI is used only for (a) a second opinion on *typed* answers that missed the key (`acceptedQuestions` in the analysis response — it can never overturn an MCQ/true-false/match) and (b) the diagnosis text and recommendations. If the analysis call fails the teacher still gets the score and weak skills, with plain fallback text. Do not move marking into the model.
+- Every question carries a `skill` label (e.g. "Addition with regrouping"). **Weak** = a skill under `MASTERY_THRESHOLD` (75%, the bottom of the "Good" band); a skill's stored status flips to `mastered` at the same bar. Practice sets force every question's `skill` to the focus skill's exact label so mastery maps back to the same `student_topics` row; matching is case-insensitive via `findSkillKey`.
+- Paper = 20 questions, practice set = 10 (`ASSESSMENT_LENGTH` / `PRACTICE_LENGTH`). `requestPaper` drops malformed questions rather than failing, retries once on a bad response, and throws if still short. Questions are stable-sorted into canonical type order so the PDF has at most six sections.
+- Levels: 90+ Excellent, 75+ Good, 50+ Average, else Improvement Required (`getPerformanceLevel`).
+- **Child names are never sent to Gemini** — prompts carry only class, subject, topics and the child's answers.
+- Assessments are English-only: typed-answer matching and the PDF (jsPDF's built-in fonts are Latin-1; `pdfSafe` maps or drops anything else) do not support Indic scripts, so `getLanguage()` is deliberately ignored here.
+- `assessments.questions` stores the answer key and `results` the per-question outcome (including AI-overturned answers, which can't be re-derived), so a PDF can be rebuilt any time without calling the AI. jsPDF is loaded with a dynamic `import()` only when Download is clicked.
+- `ScoreTrendChart` plots full papers only; practice sets are 10 questions on one skill and would distort the trend.
+- Papers and teaching chats are **not persisted mid-way**: a saved row is written when a paper is submitted. `beforeunload` warns during `taking`/`teaching`/`practice-taking`.
+
+`syllabus.js` only has **placeholder** Class 3 Math topics (the four areas from the school's Class 3 syllabus); replace them with the real wording. Any class/subject without an entry works — the teacher types the topics taught so far, and an end-term paper falls back to "the standard syllabus".
+
 ### Auth, data, and payments (Supabase)
 
 Auth is real Supabase auth. `AuthProvider` (`src/context/AuthContext.jsx`, mounted in `main.jsx` above `BrowserRouter`) owns `session`/`profile`/`loading` and exposes them via the `useAuth` hook in `src/context/useAuth.js` — the hook lives in its own file so the provider file only exports a component (React Fast Refresh requirement). `ProtectedRoute` gates on `session`; `AdminRoute` additionally requires `profile.role === "admin"`.
 
-Schema, RLS policies, and Edge Functions live in `supabase/` — see `supabase/README.md` for the one-time setup (run `schema.sql`, disable email confirmation, set env vars, deploy functions, promote an admin). Tables: `profiles`, `plans`, `subscriptions`, `payments`, `activity_log`, `generated_content`.
+Schema, RLS policies, and Edge Functions live in `supabase/` — see `supabase/README.md` for the one-time setup (run `schema.sql`, disable email confirmation, set env vars, deploy functions, promote an admin). Tables: `profiles`, `plans`, `subscriptions`, `payments`, `activity_log`, `generated_content`, plus the assessment tables `students`, `assessments`, `student_topics`, `teaching_sessions` (owner-only RLS; the write policies also require `student_id` to belong to the caller, so a guessed uuid can't attach rows to someone else's student).
 
 **Access control:** the app is paywalled. `SubscriptionProvider` (`src/context/SubscriptionContext.jsx`) loads the user's subscription and exposes `isActive`, derived from `end_date > now()`. Routes passing `requireSubscription` to `ProtectedRoute` (`/worksheet`, `/lesson`, `/quiz`, `/activities`, `/exam`, `/saved`, `/history`) redirect to `/subscription` without one. `/dashboard`, `/subscription`, `/profile`, and `/settings` stay open. **Admins bypass the paywall entirely** — `isActive` returns true for them. `SubscriptionNag` re-opens a "buy a subscription" modal 10s after each dismissal; it is deliberately suppressed on `/subscription` itself, since otherwise it would cover the plan buttons and the Razorpay checkout window the user needs to reach.
 

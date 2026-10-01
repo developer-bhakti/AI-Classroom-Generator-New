@@ -15,6 +15,8 @@ import History from "./Pages/History";
 import Profile from "./Pages/Profile";
 import Subscription from "./Pages/Subscription";
 import Admin from "./Pages/Admin";
+import Assessment from "./Pages/Assessment";
+import StudentProgress from "./Pages/StudentProgress";
 import ProtectedRoute from "./Components/ProtectedRoute";
 import AdminRoute from "./Components/AdminRoute";
 import SubscriptionNag from "./Components/SubscriptionNag";
@@ -80,6 +82,22 @@ function App() {
         element={
           <ProtectedRoute requireSubscription>
             <ActivityIdeas />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/assessment"
+        element={
+          <ProtectedRoute requireSubscription>
+            <Assessment />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/students"
+        element={
+          <ProtectedRoute requireSubscription>
+            <StudentProgress />
           </ProtectedRoute>
         }
       />

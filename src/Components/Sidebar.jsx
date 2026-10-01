@@ -12,6 +12,8 @@ import {
   Settings,
   LogOut,
   ClipboardCheck,
+  ClipboardList,
+  Users,
   CreditCard,
   ShieldCheck,
   X
@@ -39,6 +41,8 @@ const Sidebar = () => {
     { name: "Quiz Generator", icon: <HelpCircle size={18} />, path: "/quiz" },
     { name: "Activity Generator", icon: <Sparkles size={18} />, path: "/activities" },
     { name: "Exam Paper Generator", icon: <ClipboardCheck size={18} />, path: "/exam" },
+    { name: "Skill Assessment", icon: <ClipboardList size={18} />, path: "/assessment" },
+    { name: "Student Progress", icon: <Users size={18} />, path: "/students" },
     { name: "Saved Content", icon: <FolderKanban size={18} />, path: "/saved" },
     { name: "History", icon: <History size={18} />, path: "/history" },
     { name: "Subscription", icon: <CreditCard size={18} />, path: "/subscription" },

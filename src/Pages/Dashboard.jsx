@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { createPortal } from "react-dom";
 import Navbar from "../Components/Navbar";
 import Sidebar from "../Components/Sidebar";
-import { FileText, BookOpen, HelpCircle, Sparkles, ArrowRight, PencilRuler, Languages } from "lucide-react";
+import { FileText, BookOpen, HelpCircle, Sparkles, ArrowRight, PencilRuler, Languages, CalendarCheck, ClipboardList, BarChart3 } from "lucide-react";
 import { LANGUAGES, getLanguage, setLanguage } from "../Services/contentStore";
 
 const cards = [
@@ -94,6 +94,26 @@ const Dashboard = () => {
               </div>
             </div>
             <div className="hero-orb" />
+          </section>
+
+          <section className="feature-panel assess-entry">
+            <h3>Assess &amp; Manage Current Academic Skills of the Child</h3>
+            <p className="cell-muted">AI writes a 20-question paper, marks it, finds the weak skills, then teaches and re-tests just those.</p>
+            <div className="assess-entry-options">
+              <Link to="/assessment?type=end_term" className="resource-card">
+                <div className="resource-icon"><CalendarCheck size={22} /></div>
+                <h3>End-Term Assessment</h3>
+                <p>Whole-term syllabus for a class and subject.</p>
+                <span className="resource-link">Start <ArrowRight size={16} /></span>
+              </Link>
+              <Link to="/assessment?type=current" className="resource-card">
+                <div className="resource-icon"><ClipboardList size={22} /></div>
+                <h3>Current Academic Assessment</h3>
+                <p>Only what the class has covered so far.</p>
+                <span className="resource-link">Start <ArrowRight size={16} /></span>
+              </Link>
+            </div>
+            <Link to="/students" className="resource-link assess-entry-progress"><BarChart3 size={16} /> View student progress</Link>
           </section>
 
           <section className="stats-grid">

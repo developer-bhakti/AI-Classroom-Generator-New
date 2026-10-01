@@ -89,6 +89,81 @@ create table if not exists public.generated_content (
   created_at timestamptz not null default now()
 );
 
+-- ---- Student assessment ----
+-- A teacher keeps a roster of students and runs AI-generated assessments against them.
+-- Every row is owned by the teacher (teacher_id); students have no login of their own.
+
+create table if not exists public.students (
+  id         uuid primary key default gen_random_uuid(),
+  teacher_id uuid not null references public.profiles(id) on delete cascade,
+  name       text not null,
+  class_name text not null default '',
+  created_at timestamptz not null default now()
+);
+
+-- One row per completed paper. kind = 'practice' is the short reassessment that follows
+-- an AI teaching session; focus_skill is the weak skill that practice set targets.
+-- questions carries the answer key, so the PDF can be rebuilt without calling the AI again.
+create table if not exists public.assessments (
+  id              uuid primary key,
+  teacher_id      uuid not null references public.profiles(id) on delete cascade,
+  student_id      uuid not null references public.students(id) on delete cascade,
+  kind            text not null check (kind in ('end_term', 'current', 'practice')),
+  class_name      text not null default '',
+  subject         text not null default '',
+  topics          jsonb not null default '[]'::jsonb,
+  progress_note   text default '',
+  focus_skill     text,
+  questions       jsonb not null,
+  answers         jsonb not null,
+  results         jsonb not null default '[]'::jsonb,
+  total           int not null,
+  correct         int not null,
+  percentage      numeric(5, 2) not null,
+  level           text not null,
+  weak_areas      jsonb not null default '[]'::jsonb,
+  skill_results   jsonb not null default '[]'::jsonb,
+  recommendations jsonb not null default '[]'::jsonb,
+  summary         text default '',
+  created_at      timestamptz not null default now()
+);
+
+-- Current mastery of each skill for a student, rewritten after every assessment.
+create table if not exists public.student_topics (
+  id         uuid primary key default gen_random_uuid(),
+  student_id uuid not null references public.students(id) on delete cascade,
+  teacher_id uuid not null references public.profiles(id) on delete cascade,
+  subject    text not null,
+  skill      text not null,
+  status     text not null check (status in ('mastered', 'needs_practice')),
+  last_score numeric(5, 2) not null default 0,
+  attempts   int not null default 1,
+  updated_at timestamptz not null default now(),
+  unique (student_id, subject, skill)
+);
+
+create table if not exists public.teaching_sessions (
+  id               uuid primary key,
+  teacher_id       uuid not null references public.profiles(id) on delete cascade,
+  student_id       uuid not null references public.students(id) on delete cascade,
+  assessment_id    uuid references public.assessments(id) on delete set null,
+  subject          text not null default '',
+  skill            text not null,
+  transcript       jsonb not null default '[]'::jsonb,
+  practice_correct int not null default 0,
+  practice_total   int not null default 0,
+  created_at       timestamptz not null default now()
+);
+
+create index if not exists students_teacher_idx
+  on public.students (teacher_id, created_at desc);
+create index if not exists assessments_student_created_idx
+  on public.assessments (student_id, created_at desc);
+create index if not exists student_topics_student_idx
+  on public.student_topics (student_id);
+create index if not exists teaching_sessions_student_idx
+  on public.teaching_sessions (student_id, created_at desc);
+
 create index if not exists generated_content_user_created_idx
   on public.generated_content (user_id, created_at desc);
 create index if not exists generated_content_user_saved_idx
@@ -175,6 +250,10 @@ alter table public.subscriptions     enable row level security;
 alter table public.payments          enable row level security;
 alter table public.activity_log      enable row level security;
 alter table public.generated_content enable row level security;
+alter table public.students          enable row level security;
+alter table public.assessments       enable row level security;
+alter table public.student_topics    enable row level security;
+alter table public.teaching_sessions enable row level security;
 
 drop policy if exists profiles_select_own_or_admin on public.profiles;
 create policy profiles_select_own_or_admin on public.profiles
@@ -231,6 +310,53 @@ create policy generated_content_update_own on public.generated_content
 drop policy if exists generated_content_delete_own on public.generated_content;
 create policy generated_content_delete_own on public.generated_content
   for delete using (user_id = auth.uid());
+
+-- Student assessment tables: a teacher reads and writes only their own rows; admins may read all.
+-- The with-check on child tables also pins student_id to one of the caller's own students, so
+-- a teacher cannot attach an assessment to somebody else's student by guessing a uuid.
+drop policy if exists students_select_own_or_admin on public.students;
+create policy students_select_own_or_admin on public.students
+  for select using (teacher_id = auth.uid() or public.is_admin());
+
+drop policy if exists students_write_own on public.students;
+create policy students_write_own on public.students
+  for all using (teacher_id = auth.uid()) with check (teacher_id = auth.uid());
+
+drop policy if exists assessments_select_own_or_admin on public.assessments;
+create policy assessments_select_own_or_admin on public.assessments
+  for select using (teacher_id = auth.uid() or public.is_admin());
+
+drop policy if exists assessments_write_own on public.assessments;
+create policy assessments_write_own on public.assessments
+  for all using (teacher_id = auth.uid())
+  with check (
+    teacher_id = auth.uid()
+    and exists (select 1 from public.students s where s.id = student_id and s.teacher_id = auth.uid())
+  );
+
+drop policy if exists student_topics_select_own_or_admin on public.student_topics;
+create policy student_topics_select_own_or_admin on public.student_topics
+  for select using (teacher_id = auth.uid() or public.is_admin());
+
+drop policy if exists student_topics_write_own on public.student_topics;
+create policy student_topics_write_own on public.student_topics
+  for all using (teacher_id = auth.uid())
+  with check (
+    teacher_id = auth.uid()
+    and exists (select 1 from public.students s where s.id = student_id and s.teacher_id = auth.uid())
+  );
+
+drop policy if exists teaching_sessions_select_own_or_admin on public.teaching_sessions;
+create policy teaching_sessions_select_own_or_admin on public.teaching_sessions
+  for select using (teacher_id = auth.uid() or public.is_admin());
+
+drop policy if exists teaching_sessions_write_own on public.teaching_sessions;
+create policy teaching_sessions_write_own on public.teaching_sessions
+  for all using (teacher_id = auth.uid())
+  with check (
+    teacher_id = auth.uid()
+    and exists (select 1 from public.students s where s.id = student_id and s.teacher_id = auth.uid())
+  );
 
 -- ============================================================
 -- Seed plans — edit these prices to whatever you actually charge

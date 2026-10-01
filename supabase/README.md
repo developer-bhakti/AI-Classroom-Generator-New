@@ -15,6 +15,10 @@ This creates `profiles`, `plans`, `subscriptions`, `payments`, `activity_log`,
 `generated_content`, plus row-level security policies, the auto-profile trigger, and
 the four seed plans. It is safe to re-run.
 
+> **Using Skill Assessment / Student Progress?** Re-run the whole file. The current version
+> adds `students`, `assessments`, `student_topics` and `teaching_sessions` (with owner-only
+> policies). Until it is run, those two pages show a "run the latest schema.sql" error.
+
 **Edit the prices** at the bottom of `schema.sql` before running if you don't want the
 placeholder amounts (₹499 / ₹1,299 / ₹2,399 / ₹4,299). Already ran it? Change them with:
 

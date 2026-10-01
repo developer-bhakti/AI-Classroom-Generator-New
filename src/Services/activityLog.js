@@ -4,6 +4,8 @@ export const ACTIVITY_LABELS = {
   login: "Signed in",
   signup: "Created account",
   resource_generated: "Generated a resource",
+  assessment_completed: "Completed a student assessment",
+  teaching_session_completed: "Ran an AI teaching session",
   subscription_renewed: "Renewed subscription",
   subscription_granted: "Subscription granted by admin",
   subscription_paused: "Subscription paused by admin",

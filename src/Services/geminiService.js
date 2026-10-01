@@ -69,6 +69,81 @@ const QUIZ_SCHEMA = {
   propertyOrdering: ["title", "summary", "questions"]
 };
 
+const ASSESSMENT_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    title: { type: "STRING" },
+    questions: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          type: { type: "STRING", format: "enum", enum: ["mcq", "fill_blank", "true_false", "match", "problem_solving", "short_answer"] },
+          topic: { type: "STRING" },
+          skill: { type: "STRING" },
+          question: { type: "STRING" },
+          options: { type: "ARRAY", items: { type: "STRING" } },
+          correctIndex: { type: "INTEGER" },
+          answer: { type: "STRING" },
+          acceptedAnswers: { type: "ARRAY", items: { type: "STRING" } },
+          pairs: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: { left: { type: "STRING" }, right: { type: "STRING" } },
+              required: ["left", "right"],
+              propertyOrdering: ["left", "right"]
+            }
+          },
+          explanation: { type: "STRING" }
+        },
+        required: ["type", "topic", "skill", "question", "explanation"],
+        propertyOrdering: ["type", "topic", "skill", "question", "options", "correctIndex", "answer", "acceptedAnswers", "pairs", "explanation"]
+      }
+    }
+  },
+  required: ["title", "questions"],
+  propertyOrdering: ["title", "questions"]
+};
+
+const ANALYSIS_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    summary: { type: "STRING" },
+    // Question numbers (1-based) whose free-text answer was actually right although it did
+    // not match the answer key word for word.
+    acceptedQuestions: { type: "ARRAY", items: { type: "INTEGER" } },
+    weakAreas: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: { skill: { type: "STRING" }, diagnosis: { type: "STRING" } },
+        required: ["skill", "diagnosis"],
+        propertyOrdering: ["skill", "diagnosis"]
+      }
+    },
+    recommendations: { type: "ARRAY", items: { type: "STRING" } }
+  },
+  required: ["summary", "acceptedQuestions", "weakAreas", "recommendations"],
+  propertyOrdering: ["summary", "acceptedQuestions", "weakAreas", "recommendations"]
+};
+
+const TUTOR_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    message: { type: "STRING" },
+    practiceQuestion: { type: "STRING" },
+    answerStatus: { type: "STRING", format: "enum", enum: ["correct", "incorrect", "none"] },
+    understandingDemonstrated: { type: "BOOLEAN" }
+  },
+  required: ["message", "practiceQuestion", "answerStatus", "understandingDemonstrated"],
+  propertyOrdering: ["message", "practiceQuestion", "answerStatus", "understandingDemonstrated"]
+};
+
+const ASSESSMENT_SYSTEM_INSTRUCTION = "You are an experienced primary and secondary school examiner who writes fair, accurate, age-appropriate assessment papers and diagnoses exactly where a student is struggling. Every question must be answerable from the stated syllabus and every answer key must be correct. Always respond with a single JSON object matching the provided response schema exactly. Do not include markdown formatting, code fences, or commentary outside the JSON.";
+
+const TUTOR_SYSTEM_INSTRUCTION = "You are a warm, patient one-to-one AI teacher helping a school child master a single skill they found difficult. Use simple, friendly, age-appropriate language and short sentences. Teach one small step at a time, never reteach other topics, and never reveal a practice answer before the child has tried it. Always respond with a single JSON object matching the provided response schema exactly. Do not include markdown formatting, code fences, or commentary outside the JSON.";
+
 const SYSTEM_INSTRUCTION = "You are an expert curriculum designer creating classroom-ready teaching resources for school teachers. Always respond with a single JSON object matching the provided response schema exactly. Do not include markdown formatting, code fences, or commentary outside the JSON.";
 
 const isPlainObject = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
@@ -164,20 +239,27 @@ const postToGemini = async ({ model, body, timeoutMs }) => {
   return candidate;
 };
 
-const requestGeminiJSON = async (prompt, schema) => {
+const requestGeminiJSON = async (prompt, schema, {
+  systemInstruction = SYSTEM_INSTRUCTION,
+  // Multi-turn callers pass the whole conversation; everyone else just sends one prompt.
+  contents = [{ role: "user", parts: [{ text: prompt }] }],
+  temperature = 0.7,
+  maxOutputTokens = 4096,
+  timeoutMs = REQUEST_TIMEOUT_MS
+} = {}) => {
   const model = import.meta.env.VITE_GEMINI_MODEL || DEFAULT_MODEL;
 
   const candidate = await postToGemini({
     model,
-    timeoutMs: REQUEST_TIMEOUT_MS,
+    timeoutMs,
     body: {
-      systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      systemInstruction: { parts: [{ text: systemInstruction }] },
+      contents,
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: schema,
-        temperature: 0.7,
-        maxOutputTokens: 4096
+        temperature,
+        maxOutputTokens
       }
     }
   });
@@ -263,5 +345,87 @@ export const generateQuizContent = async (prompt) => {
     title: parsed.title,
     summary: parsed.summary,
     questions: parsed.questions.map((q) => ({ question: q.question, options: q.options, correctIndex: q.correctIndex }))
+  };
+};
+
+// ---- Student assessment ----
+
+const isStringArray = (value) => Array.isArray(value) && value.every((item) => typeof item === "string");
+
+/**
+ * Returns the model's raw question list. Per-type checks (an MCQ needs four options, a match
+ * question needs pairs, ...) live in assessmentGrading.normalizeQuestions, which can drop a
+ * single bad question instead of failing the whole paper.
+ */
+export const generateAssessmentContent = async (prompt) => {
+  const parsed = await requestGeminiJSON(prompt, ASSESSMENT_SCHEMA, {
+    systemInstruction: ASSESSMENT_SYSTEM_INSTRUCTION,
+    // A 20-question paper with answer keys and explanations is far longer than a worksheet.
+    maxOutputTokens: 16384,
+    timeoutMs: 90000,
+    temperature: 0.8
+  });
+
+  if (!isPlainObject(parsed) || !Array.isArray(parsed.questions) || parsed.questions.length === 0) {
+    throw new GeminiResponseError("Gemini returned an unexpected format. Try again.");
+  }
+
+  return { title: typeof parsed.title === "string" ? parsed.title : "", questions: parsed.questions.filter(isPlainObject) };
+};
+
+export const analyzeAssessmentContent = async (prompt) => {
+  const parsed = await requestGeminiJSON(prompt, ANALYSIS_SCHEMA, {
+    systemInstruction: ASSESSMENT_SYSTEM_INSTRUCTION,
+    maxOutputTokens: 8192,
+    timeoutMs: 60000,
+    temperature: 0.3
+  });
+
+  const valid = isPlainObject(parsed)
+    && typeof parsed.summary === "string"
+    && Array.isArray(parsed.acceptedQuestions) && parsed.acceptedQuestions.every(Number.isInteger)
+    && Array.isArray(parsed.weakAreas) && parsed.weakAreas.every((area) => isPlainObject(area) && typeof area.skill === "string" && typeof area.diagnosis === "string")
+    && isStringArray(parsed.recommendations);
+
+  if (!valid) {
+    throw new GeminiResponseError("Gemini returned an unexpected format. Try again.");
+  }
+
+  return {
+    summary: parsed.summary,
+    acceptedQuestions: parsed.acceptedQuestions,
+    weakAreas: parsed.weakAreas.map((area) => ({ skill: area.skill, diagnosis: area.diagnosis })),
+    recommendations: parsed.recommendations
+  };
+};
+
+/**
+ * One turn of the AI teacher. `systemContext` describes the skill being taught; `history` is
+ * the conversation so far as [{ role: "user" | "model", text }], oldest first.
+ */
+export const generateTutorTurn = async ({ systemContext, history }) => {
+  const parsed = await requestGeminiJSON("", TUTOR_SCHEMA, {
+    systemInstruction: `${TUTOR_SYSTEM_INSTRUCTION}\n\n${systemContext}`,
+    contents: history.map(({ role, text }) => ({ role, parts: [{ text }] })),
+    maxOutputTokens: 4096,
+    timeoutMs: 45000,
+    temperature: 0.7
+  });
+
+  const valid = isPlainObject(parsed)
+    && typeof parsed.message === "string" && parsed.message.trim() !== ""
+    && typeof parsed.practiceQuestion === "string"
+    && ["correct", "incorrect", "none"].includes(parsed.answerStatus)
+    && typeof parsed.understandingDemonstrated === "boolean";
+
+  if (!valid) {
+    throw new GeminiResponseError("Gemini returned an unexpected format. Try again.");
+  }
+
+  return {
+    message: parsed.message,
+    practiceQuestion: parsed.practiceQuestion,
+    answerStatus: parsed.answerStatus,
+    understandingDemonstrated: parsed.understandingDemonstrated
   };
 };
