@@ -563,3 +563,4 @@ Every generator offers the same class list, from pre-primary through to Class 12
 | Class 12 | Physics, Chemistry, Biology, Math, Computer Science |
 
 *Changing the class always resets the Subject field to the first available option for that class, so you never end up with a mismatched class/subject combination.*
+# ai-classroom-new
