@@ -107,6 +107,7 @@ const Login = () => {
             <span className="feature-badge"><FaBrain /> AI-powered</span>
             <span className="feature-badge"><FaBookOpen /> Ready to use</span>
             <span className="feature-badge"><FaMagic /> Premium experience</span>
+            <span className="feature-badge"><FaGraduationCap /> Teacher / Parent login</span>
           </div>
 
           <form onSubmit={handleLogin} className="auth-form">

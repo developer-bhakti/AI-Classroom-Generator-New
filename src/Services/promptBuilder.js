@@ -1,10 +1,26 @@
 import { getResourcePalette } from "./resourcePalette";
+import { describeLearners, isPreschool, isYoungLearner } from "./curriculum";
 
 const JSON_REMINDER = "Respond only with the requested JSON structure — no markdown, no extra commentary.";
+
+// The app serves PG to Class 3 only, so every text prompt says who the learners are. Without it the
+// model writes for "the class" in general and a topic like "Photosynthesis" comes back pitched at
+// Class 8. A topic that is too advanced is simplified to what this age can grasp, never refused.
+export const audienceNote = (className) => {
+  if (!className) return "";
+  const learners = describeLearners(className);
+  const level = isPreschool(className)
+    ? "They cannot read yet, so write every task as a short spoken instruction the teacher or parent reads aloud, built on pictures, real objects, songs, colours, counting, tracing, matching and actions. Use only very simple words, one idea per item, and keep any text a child must recognise to single letters, numbers or very short words."
+    : isYoungLearner(className)
+      ? "They are early readers: use short sentences, everyday words and familiar settings (home, school, family, food, animals, festivals), one idea per item, and picture-friendly or hands-on tasks."
+      : "They read simple sentences: use clear everyday language, short paragraphs, familiar examples and concrete, hands-on tasks.";
+  return `Audience: ${learners}. ${level} If the topic is normally taught to older children, teach only the simple, concrete part of it that this age group can understand, and still produce a complete, useful resource - never decline or reply that the topic is too advanced.`;
+};
 
 export const buildWorksheetPrompt = ({ topic, className, subject, difficultyLevel, numberOfQuestions, worksheetType, learningObjectives, additionalInstructions }) => {
   return `Create a printable ${worksheetType || "practice"} worksheet on "${topic}" for ${subject || "the subject"}, ${className || "the class"}.
 Difficulty level: ${difficultyLevel || "Medium"}.
+${audienceNote(className)}
 Structure the response as JSON with a "title", a one-sentence "summary", and a "sections" array containing exactly these sections in order:
 1. "Warm-Up" — 2-3 short items that ease students into the topic with a relatable example.
 2. "Practice" — around ${numberOfQuestions || 10} numbered practice tasks or questions on the topic, appropriately scaled in difficulty.
@@ -25,7 +41,7 @@ export const buildWorksheetImagePrompt = ({ topic, className, subject, difficult
 
 The page must look like a real photocopiable worksheet handed out by a teacher — a flat, straight-on, full-bleed scan of the sheet itself. Not a photo of paper on a desk, not a 3D mockup, no shadows, no curled corners, no hands, no background scene.
 
-Audience: ${className || "primary school"} students studying ${subject || "this topic"}. Worksheet style: ${worksheetType || "practice"}. Difficulty: ${difficultyLevel || "Medium"}.
+Audience: ${className ? describeLearners(className) : "primary school students"} studying ${subject || "this topic"}.${isYoungLearner(className) ? " Keep text to a minimum: very large, friendly illustrations, big tracing, circling, colouring and matching tasks, and generous write-on space." : ""} Worksheet style: ${worksheetType || "practice"}. Difficulty: ${difficultyLevel || "Medium"}.
 Learning focus: ${learningObjectives || "build a solid understanding of the topic"}.
 Extra instructions from the teacher: ${additionalInstructions || "none"}.
 
@@ -47,6 +63,7 @@ Typography: crisp, perfectly spelled, correctly formed printed text in a clean s
 export const buildLessonPrompt = ({ topic, className, subject, duration, objective }) => {
   return `Create a complete lesson plan on "${topic}" for ${subject || "the subject"}, ${className || "the class"}, designed to fit a ${duration || "45 mins"} session.
 Learning objective: ${objective || "help students understand the topic clearly"}.
+${audienceNote(className)}
 Structure the response as JSON with a "title", a one-sentence "summary", and a "sections" array containing exactly these sections in order:
 1. "Opening" — a relatable hook and a way to activate prior knowledge.
 2. "Guided Practice" — how the teacher models the concept with the class.
@@ -59,11 +76,13 @@ ${JSON_REMINDER}`;
 export const buildQuizPrompt = ({ topic, className, subject, duration, objective }) => {
   return `Create a short multiple-choice quiz on "${topic}" for ${subject || "the subject"}, ${className || "the class"}, meant to fit a ${duration || "15 mins"} activity.
 It should assess: ${objective || "understanding of the topic"}.
+${audienceNote(className)}
 Create 8 to 10 multiple-choice questions of varying difficulty, using clear classroom examples.
 Structure the response as JSON with a "title", a one-sentence "summary", and a "questions" array. Each item in "questions" must be an object with:
 - "question": the question text
 - "options": an array of exactly 4 answer choices as strings, in a shuffled (non-obvious) order
 - "correctIndex": the 0-based index into "options" of the one correct answer
+- "explanation": one short, friendly sentence (under 20 words) telling the student why that answer is right, so a child who got it wrong learns from it
 
 Exactly one option per question must be correct; the other three should be plausible but clearly wrong distractors.
 
@@ -73,6 +92,7 @@ ${JSON_REMINDER}`;
 export const buildActivityPrompt = ({ topic, className, subject, duration, objective }) => {
   return `Generate creative classroom activity ideas for "${topic}" for ${subject || "the subject"}, ${className || "the class"}, each fitting within a ${duration || "30 mins"} session.
 The activities should support: ${objective || "student engagement and understanding"}.
+${audienceNote(className)}
 Structure the response as JSON with a "title", a one-sentence "summary", and a "sections" array containing 3 to 4 sections, one per activity idea (e.g. "Activity 1", "Activity 2", ...). Each section's items should include a short setup instruction and the expected learning outcome for that activity. Activities should be hands-on and collaborative where possible.
 
 ${JSON_REMINDER}`;
@@ -81,6 +101,7 @@ ${JSON_REMINDER}`;
 export const buildExamPrompt = ({ className, subject, topic, duration, totalMarks, difficulty, instructions }) => {
   return `Create a polished exam paper for ${className || "the class"} on ${subject || "the subject"}: "${topic}".
 Total marks: ${totalMarks || "50"}. Time limit: ${duration || "60 mins"}. Difficulty: ${difficulty || "Medium"}.
+${audienceNote(className)}
 Structure the response as JSON with a "title", a one-sentence "summary", and a "sections" array containing exactly these sections in order:
 1. "Section A" — 5 shorter-answer questions using realistic classroom scenarios.
 2. "Section B" — 5 application/longer-answer questions that require more reasoning.

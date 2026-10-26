@@ -1,6 +1,21 @@
 import React, { useState } from "react";
 import { ChevronLeft, ChevronRight, Send } from "lucide-react";
-import { OPTION_LABELS, QUESTION_TYPES, isAnswered } from "../../Services/assessmentGrading";
+import {
+  OPTION_LABELS,
+  QUESTION_TYPES,
+  isAnswered,
+  isChoiceQuestion
+} from "../../Services/assessmentGrading";
+import { isEmojiString } from "../../Services/emoji";
+
+const matchLabel = (index) => OPTION_LABELS[index] || String.fromCharCode(65 + index);
+
+// The little badge on each option button.
+const optionBadge = (question, index) => {
+  if (question.type === "true_false") return index === 0 ? "T" : "F";
+  if (question.type === "activity") return index === 0 ? "✅" : "🌱";
+  return OPTION_LABELS[index];
+};
 
 // Walks a child through a paper one question at a time. It owns only "which question is on
 // screen"; the answers live in the parent so a page can read them when the paper is submitted.
@@ -16,17 +31,18 @@ const QuestionPlayer = ({ questions, answers, onAnswer, onSubmit, submitLabel = 
   const renderInput = () => {
     const value = answers[index];
 
-    if (question.type === "mcq" || question.type === "true_false") {
+    if (isChoiceQuestion(question)) {
       return (
-        <div className="quiz-options">
+        <div className={`quiz-options ${question.type === "picture" ? "picture-options" : ""}`}>
           {question.options.map((option, optionIndex) => (
             <button
               type="button"
               key={optionIndex}
-              className={`quiz-option-btn ${value === optionIndex ? "selected" : ""}`}
+              className={`quiz-option-btn ${value === optionIndex ? "selected" : ""} ${isEmojiString(option) ? "emoji-option" : ""}`}
+              aria-pressed={value === optionIndex}
               onClick={() => onAnswer(index, optionIndex)}
             >
-              <span className="quiz-option-label">{question.type === "mcq" ? OPTION_LABELS[optionIndex] : optionIndex === 0 ? "T" : "F"}</span>
+              <span className="quiz-option-label">{optionBadge(question, optionIndex)}</span>
               {option}
             </button>
           ))}
@@ -39,14 +55,14 @@ const QuestionPlayer = ({ questions, answers, onAnswer, onSubmit, submitLabel = 
         <div className="assess-match">
           <ol className="assess-match-rights">
             {question.rights.map((right, rightIndex) => (
-              <li key={rightIndex}><span className="quiz-option-label">{OPTION_LABELS[rightIndex] || String.fromCharCode(65 + rightIndex)}</span>{right}</li>
+              <li key={rightIndex}><span className="quiz-option-label">{matchLabel(rightIndex)}</span>{right}</li>
             ))}
           </ol>
           {question.lefts.map((left, leftIndex) => (
             <div className="assess-match-row" key={leftIndex}>
-              <span className="assess-match-left">{leftIndex + 1}. {left}</span>
+              <span className={`assess-match-left ${isEmojiString(left) ? "emoji-left" : ""}`}>{isEmojiString(left) ? left : `${leftIndex + 1}. ${left}`}</span>
               <select
-                aria-label={`Match for ${left}`}
+                aria-label={`Match for ${isEmojiString(left) ? `picture ${leftIndex + 1}` : left}`}
                 value={Number.isInteger(value?.[leftIndex]) ? value[leftIndex] : ""}
                 onChange={(e) => {
                   const next = [...(value || new Array(question.lefts.length).fill(null))];
@@ -56,7 +72,7 @@ const QuestionPlayer = ({ questions, answers, onAnswer, onSubmit, submitLabel = 
               >
                 <option value="">Choose…</option>
                 {question.rights.map((_, rightIndex) => (
-                  <option key={rightIndex} value={rightIndex}>{OPTION_LABELS[rightIndex] || String.fromCharCode(65 + rightIndex)}</option>
+                  <option key={rightIndex} value={rightIndex}>{matchLabel(rightIndex)}</option>
                 ))}
               </select>
             </div>
@@ -113,6 +129,13 @@ const QuestionPlayer = ({ questions, answers, onAnswer, onSubmit, submitLabel = 
       </div>
 
       <span className="preview-chip">{QUESTION_TYPES[question.type]}</span>
+      {question.type === "activity" ? (
+        <div className="activity-card">
+          <span aria-hidden="true">👋</span>
+          <p>Activity — a grown-up asks, the child does it, and the grown-up records how it went.</p>
+        </div>
+      ) : null}
+      {question.picture ? <div className="question-picture" role="img" aria-label="Picture to look at">{question.picture}</div> : null}
       <h4 className="quiz-question-text">{question.question}</h4>
       {renderInput()}
 

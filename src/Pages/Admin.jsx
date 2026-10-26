@@ -21,9 +21,12 @@ import {
   pauseSubscription,
   resumeSubscription,
   cancelSubscription,
-  deleteSubscription
+  deleteSubscription,
+  listAllTeacherRequests,
+  updateTeacherRequestStatus
 } from "../Services/adminService";
 import { ACTIVITY_LABELS } from "../Services/activityLog";
+import { REQUEST_STATUS_LABELS } from "../Services/studentService";
 import { RESOURCE_TYPES } from "../Services/contentStore";
 
 const formatDate = (iso) =>
@@ -60,6 +63,8 @@ const Admin = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [query, setQuery] = useState("");
+  const [teacherRequests, setTeacherRequests] = useState([]);
+  const [requestsError, setRequestsError] = useState(null);
 
   const [detailUser, setDetailUser] = useState(null);
   const [detail, setDetail] = useState({ activity: [], content: [], loading: false });
@@ -98,9 +103,18 @@ const Admin = () => {
     let active = true;
     (async () => {
       setLoading(true);
-      const [, planData] = await Promise.all([loadAll(), getPlans().catch(() => [])]);
+      const [, planData, requestRows] = await Promise.all([
+        loadAll(),
+        getPlans().catch(() => []),
+        listAllTeacherRequests().catch((err) => {
+          // Usually "relation does not exist" before the latest schema.sql has been run; the rest of the page still works.
+          if (active) setRequestsError(err.message);
+          return [];
+        })
+      ]);
       if (!active) return;
       setPlans(planData);
+      setTeacherRequests(requestRows);
       setLoading(false);
     })();
     return () => { active = false; };
@@ -189,6 +203,17 @@ const Admin = () => {
   const handleDelete = () => {
     if (!window.confirm(`Delete ${detailUser.full_name || detailUser.email}'s subscription entirely? This cannot be undone.`)) return;
     runAction(() => deleteSubscription(detailUser.subscription), "Subscription deleted.");
+  };
+
+  const changeRequestStatus = async (requestId, status) => {
+    const previous = teacherRequests;
+    setTeacherRequests((rows) => rows.map((row) => (row.id === requestId ? { ...row, status } : row)));
+    try {
+      await updateTeacherRequestStatus(requestId, status);
+    } catch (err) {
+      setTeacherRequests(previous);
+      setRequestsError(err.message);
+    }
   };
 
   const sub = detailUser?.subscription;
@@ -285,6 +310,52 @@ const Admin = () => {
                   </tbody>
                 </table>
                 {filtered.length === 0 ? <p className="table-empty">No users match “{query}”.</p> : null}
+              </div>
+
+              <div className="toolbar-row">
+                <h3 className="section-heading" style={{ margin: 0 }}>Online teacher requests ({teacherRequests.length})</h3>
+              </div>
+              {requestsError ? <p className="inline-error"><AlertTriangle size={14} /> {requestsError}</p> : null}
+              <div className="panel-card data-table-wrap">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Requested</th>
+                      <th>Student</th>
+                      <th>Class · subject</th>
+                      <th>Areas to cover</th>
+                      <th>Requested by</th>
+                      <th>When / contact</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {teacherRequests.map((row) => (
+                      <tr key={row.id}>
+                        <td data-label="Requested" className="cell-muted">{formatDate(row.created_at)}</td>
+                        <td data-label="Student">{row.students?.name || "—"}</td>
+                        <td data-label="Class · subject">{row.class_name} · {row.subject}</td>
+                        <td data-label="Areas to cover">
+                          {(row.areas || []).join(", ")}
+                          {row.note ? <span className="cell-muted"> — {row.note}</span> : null}
+                        </td>
+                        <td data-label="Requested by" className="cell-muted">{row.teacher?.full_name || row.teacher?.email || "—"}</td>
+                        <td data-label="When / contact">{row.preferred_time}<br /><span className="cell-muted">{row.contact}</span></td>
+                        <td data-label="Status">
+                          <select
+                            value={row.status}
+                            onChange={(e) => changeRequestStatus(row.id, e.target.value)}
+                            aria-label={`Status of the request for ${row.students?.name || "student"}`}
+                            className="request-status-select"
+                          >
+                            {Object.entries(REQUEST_STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                          </select>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {teacherRequests.length === 0 ? <p className="table-empty">No teacher requests yet.</p> : null}
               </div>
             </>
           )}

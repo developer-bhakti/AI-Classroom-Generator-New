@@ -125,7 +125,45 @@ create table if not exists public.assessments (
   skill_results   jsonb not null default '[]'::jsonb,
   recommendations jsonb not null default '[]'::jsonb,
   summary         text default '',
+  academic_year   text default '',
+  month           text default '',
+  improvement_plan jsonb not null default '[]'::jsonb,
+  skill_ratings   jsonb not null default '[]'::jsonb,
+  teacher_remarks text not null default '',
   created_at      timestamptz not null default now()
+);
+
+-- Upgrades an install that ran an earlier version of this file (all no-ops on a fresh one).
+do $$
+begin
+  -- the month (or term) an assessment covers used to be called completed_month
+  if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'assessments' and column_name = 'completed_month')
+     and not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'assessments' and column_name = 'month') then
+    alter table public.assessments rename column completed_month to month;
+  end if;
+end $$;
+alter table public.assessments add column if not exists academic_year text default '';
+alter table public.assessments add column if not exists month text default '';
+alter table public.assessments add column if not exists improvement_plan jsonb not null default '[]'::jsonb;
+alter table public.assessments add column if not exists skill_ratings jsonb not null default '[]'::jsonb;
+alter table public.assessments add column if not exists teacher_remarks text not null default '';
+
+-- "Do you need an online teacher?" -> Yes: the teacher asks Adiuvaret to match a tutor for the
+-- weak areas. Staff (admins) see every request and move it along; teachers only create and read.
+create table if not exists public.teacher_requests (
+  id             uuid primary key default gen_random_uuid(),
+  teacher_id     uuid not null references public.profiles(id) on delete cascade,
+  student_id     uuid not null references public.students(id) on delete cascade,
+  assessment_id  uuid references public.assessments(id) on delete set null,
+  class_name     text not null default '',
+  subject        text not null default '',
+  areas          jsonb not null default '[]'::jsonb,
+  preferred_time text not null default '',
+  contact        text not null default '',
+  note           text not null default '',
+  status         text not null default 'requested' check (status in ('requested', 'assigned', 'completed', 'cancelled')),
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now()
 );
 
 -- Current mastery of each skill for a student, rewritten after every assessment.
@@ -155,6 +193,35 @@ create table if not exists public.teaching_sessions (
   created_at       timestamptz not null default now()
 );
 
+-- ---- Syllabus ----
+-- Annual syllabus -> term -> month, for one academic year, class and subject. The term follows from
+-- the month in the app, so there is one row per month, holding that month's topics / learning
+-- outcomes. An admin's row can be shared with every teacher (is_shared); anyone else's is theirs
+-- alone, and a teacher's own row for a month wins over the shared one.
+create table if not exists public.syllabus_entries (
+  id            uuid primary key default gen_random_uuid(),
+  owner_id      uuid not null references public.profiles(id) on delete cascade,
+  is_shared     boolean not null default false,
+  academic_year text not null,
+  class_name    text not null,
+  subject       text not null,
+  month         text not null check (month in (
+    'April', 'May', 'June', 'July', 'August', 'September',
+    'October', 'November', 'December', 'January', 'February', 'March'
+  )),
+  topics        jsonb not null default '[]'::jsonb check (jsonb_typeof(topics) = 'array'),
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+
+-- At most one shared row per month, and one personal row per teacher per month.
+create unique index if not exists syllabus_shared_unique
+  on public.syllabus_entries (academic_year, class_name, subject, month) where is_shared;
+create unique index if not exists syllabus_personal_unique
+  on public.syllabus_entries (owner_id, academic_year, class_name, subject, month) where not is_shared;
+create index if not exists syllabus_lookup_idx
+  on public.syllabus_entries (academic_year, class_name, subject);
+
 create index if not exists students_teacher_idx
   on public.students (teacher_id, created_at desc);
 create index if not exists assessments_student_created_idx
@@ -163,6 +230,10 @@ create index if not exists student_topics_student_idx
   on public.student_topics (student_id);
 create index if not exists teaching_sessions_student_idx
   on public.teaching_sessions (student_id, created_at desc);
+create index if not exists teacher_requests_student_idx
+  on public.teacher_requests (student_id, created_at desc);
+create index if not exists teacher_requests_status_idx
+  on public.teacher_requests (status, created_at desc);
 
 create index if not exists generated_content_user_created_idx
   on public.generated_content (user_id, created_at desc);
@@ -254,6 +325,8 @@ alter table public.students          enable row level security;
 alter table public.assessments       enable row level security;
 alter table public.student_topics    enable row level security;
 alter table public.teaching_sessions enable row level security;
+alter table public.teacher_requests  enable row level security;
+alter table public.syllabus_entries  enable row level security;
 
 drop policy if exists profiles_select_own_or_admin on public.profiles;
 create policy profiles_select_own_or_admin on public.profiles
@@ -357,6 +430,40 @@ create policy teaching_sessions_write_own on public.teaching_sessions
     teacher_id = auth.uid()
     and exists (select 1 from public.students s where s.id = student_id and s.teacher_id = auth.uid())
   );
+
+-- Syllabus: everyone signed in can read the shared (admin) syllabus and their own; only an admin can
+-- create or change shared rows (any admin, not just the one who made it); everyone manages their own.
+drop policy if exists syllabus_select on public.syllabus_entries;
+create policy syllabus_select on public.syllabus_entries
+  for select using (is_shared or owner_id = auth.uid() or public.is_admin());
+
+drop policy if exists syllabus_write_own on public.syllabus_entries;
+create policy syllabus_write_own on public.syllabus_entries
+  for all using (owner_id = auth.uid() and (not is_shared or public.is_admin()))
+  with check (owner_id = auth.uid() and (not is_shared or public.is_admin()));
+
+drop policy if exists syllabus_admin_shared on public.syllabus_entries;
+create policy syllabus_admin_shared on public.syllabus_entries
+  for all using (public.is_admin() and is_shared)
+  with check (public.is_admin() and is_shared);
+
+-- Teacher requests: a teacher may create and read their own (for their own students only); only
+-- admins can change a request's status, so a teacher can't mark their own request "completed".
+drop policy if exists teacher_requests_select_own_or_admin on public.teacher_requests;
+create policy teacher_requests_select_own_or_admin on public.teacher_requests
+  for select using (teacher_id = auth.uid() or public.is_admin());
+
+drop policy if exists teacher_requests_insert_own on public.teacher_requests;
+create policy teacher_requests_insert_own on public.teacher_requests
+  for insert with check (
+    teacher_id = auth.uid()
+    and status = 'requested'
+    and exists (select 1 from public.students s where s.id = student_id and s.teacher_id = auth.uid())
+  );
+
+drop policy if exists teacher_requests_admin_manage on public.teacher_requests;
+create policy teacher_requests_admin_manage on public.teacher_requests
+  for all using (public.is_admin()) with check (public.is_admin());
 
 -- ============================================================
 -- Seed plans — edit these prices to whatever you actually charge

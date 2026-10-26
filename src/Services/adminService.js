@@ -65,3 +65,26 @@ export const deleteSubscription = async (subscription) => {
   if (error) throw new Error(error.message);
   await logActivity(subscription.user_id, "subscription_deleted", { by: "admin" });
 };
+
+// ---- Online teacher requests (admin side) ----
+// Reads and updates are gated by the `teacher_requests_admin_manage` policy, like the subscription writes above.
+
+export const listAllTeacherRequests = async () => {
+  const { data, error } = await supabase
+    .from("teacher_requests")
+    .select("id, class_name, subject, areas, preferred_time, contact, note, status, created_at, students(name), teacher:profiles!teacher_id(full_name, email)")
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  if (error) throw new Error(error.message);
+  return data || [];
+};
+
+export const updateTeacherRequestStatus = async (requestId, status) => {
+  const { error } = await supabase
+    .from("teacher_requests")
+    .update({ status, updated_at: nowIso() })
+    .eq("id", requestId);
+
+  if (error) throw new Error(error.message);
+};

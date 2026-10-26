@@ -1,45 +1,82 @@
-import React, { useMemo, useState } from "react";
-import { AlertTriangle, Check, Plus, UserPlus, X } from "lucide-react";
-import { classOptions, subjectMap } from "../../Services/curriculum";
-import { getSyllabusAreas, getSyllabusTopics } from "../../Services/syllabus";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { AlertTriangle, ArrowRight, UserPlus } from "lucide-react";
+import MonthSyllabusEditor from "./MonthSyllabusEditor";
+import {
+  ACADEMIC_MONTHS,
+  TERMS,
+  academicYearOptions,
+  classOptions,
+  currentAcademicYear,
+  currentMonthName,
+  parsePeriod,
+  subjectMap,
+  termLabel
+} from "../../Services/curriculum";
+import { listSyllabus, summarizePeriod } from "../../Services/syllabusService";
 import { addStudent } from "../../Services/studentService";
 
-const AssessmentSetup = ({ kind, teacherId, students, onStudentAdded, onStart, busy }) => {
-  const isCurrent = kind === "current";
-
-  const [className, setClassName] = useState("Class 3");
-  const [subject, setSubject] = useState("Math");
-  const [topics, setTopics] = useState([]);
-  const [customTopic, setCustomTopic] = useState("");
-  const [progressNote, setProgressNote] = useState("");
-  const [studentId, setStudentId] = useState("");
+/**
+ * "Select student details": the student, class, academic year, subject and month. As soon as those
+ * are chosen the syllabus for that month is loaded, so the child is checked only on what has been
+ * taught. If the syllabus has not been added yet, the editor is right here.
+ */
+const AssessmentSetup = ({ userId, isAdmin, students, onStudentAdded, initial, onContinue }) => {
+  const [studentId, setStudentId] = useState(initial.studentId || "");
+  const [className, setClassName] = useState(initial.className || "UKG");
+  const [subject, setSubject] = useState(initial.subject || subjectMap[initial.className || "UKG"][0]);
+  const [academicYear, setAcademicYear] = useState(initial.academicYear || currentAcademicYear());
+  const [periodKey, setPeriodKey] = useState(initial.periodKey || currentMonthName());
 
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const [studentBusy, setStudentBusy] = useState(false);
   const [studentError, setStudentError] = useState(null);
 
+  const [entries, setEntries] = useState(null); // null while loading
+  const [syllabusError, setSyllabusError] = useState(null);
+  const [editing, setEditing] = useState(false);
+
   const subjects = subjectMap[className] || [];
-  const areas = useMemo(() => getSyllabusAreas(className, subject), [className, subject]);
-  const builtInTopics = useMemo(() => getSyllabusTopics(className, subject), [className, subject]);
+  const years = useMemo(() => academicYearOptions(), []);
+  const period = useMemo(() => parsePeriod(periodKey) || parsePeriod(currentMonthName()), [periodKey]);
+  const singleMonth = period.months.length === 1;
+
+  const loadEntries = useCallback(async (isCurrent = () => true) => {
+    try {
+      const rows = await listSyllabus({ userId, academicYear, className, subject });
+      if (isCurrent()) setEntries(rows);
+    } catch (err) {
+      if (isCurrent()) {
+        setSyllabusError(err.message);
+        setEntries([]);
+      }
+    }
+  }, [userId, academicYear, className, subject]);
+
+  useEffect(() => {
+    let current = true;
+    setEntries(null);
+    setSyllabusError(null);
+    setEditing(false);
+    loadEntries(() => current);
+    return () => { current = false; };
+  }, [loadEntries]);
+
+  const summary = useMemo(() => (entries ? summarizePeriod(entries, period.months) : null), [entries, period]);
+  const hasTopics = Boolean(summary && summary.topics.length > 0);
+  const student = students.find((item) => item.id === studentId);
+
+  const changeStudent = (id) => {
+    setStudentId(id);
+    const chosen = students.find((item) => item.id === id);
+    // A child's own class is the sensible default; the teacher can still change it.
+    if (chosen && classOptions.includes(chosen.className) && chosen.className !== className) changeClass(chosen.className);
+  };
 
   const changeClass = (value) => {
     setClassName(value);
-    setSubject(subjectMap[value][0] || "");
-    setTopics([]);
-  };
-
-  const changeSubject = (value) => {
-    setSubject(value);
-    setTopics([]);
-  };
-
-  const toggleTopic = (topic) => setTopics((prev) => (prev.includes(topic) ? prev.filter((item) => item !== topic) : [...prev, topic]));
-
-  const addCustomTopic = () => {
-    const value = customTopic.trim();
-    if (value && !topics.some((topic) => topic.toLowerCase() === value.toLowerCase())) setTopics((prev) => [...prev, value]);
-    setCustomTopic("");
+    setSubject((current) => (subjectMap[value].includes(current) ? current : subjectMap[value][0]));
   };
 
   const submitNewStudent = async () => {
@@ -47,9 +84,9 @@ const AssessmentSetup = ({ kind, teacherId, students, onStudentAdded, onStart, b
     setStudentBusy(true);
     setStudentError(null);
     try {
-      const student = await addStudent({ teacherId, name: newName, className });
-      onStudentAdded(student);
-      setStudentId(student.id);
+      const created = await addStudent({ teacherId: userId, name: newName, className });
+      onStudentAdded(created);
+      setStudentId(created.id);
       setNewName("");
       setAdding(false);
     } catch (err) {
@@ -59,119 +96,34 @@ const AssessmentSetup = ({ kind, teacherId, students, onStudentAdded, onStart, b
     }
   };
 
-  const student = students.find((item) => item.id === studentId);
-  const customTopics = topics.filter((topic) => !builtInTopics.includes(topic));
-  const canStart = Boolean(student) && (!isCurrent || topics.length > 0 || progressNote.trim() !== "");
-
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!canStart || busy) return;
-    onStart({
-      kind,
+    if (!student || !hasTopics) return;
+    onContinue({
+      student,
       className,
       subject,
-      // An end-term paper covers everything in the built-in syllabus; with none, the AI uses the standard one.
-      topics: isCurrent ? topics : builtInTopics,
-      progressNote: isCurrent ? progressNote.trim() : "",
-      student
+      academicYear,
+      period,
+      syllabus: summary.months.filter((item) => item.topics.length > 0)
     });
   };
 
+  const missingLink = summary && summary.missing.length > 0
+    ? `/syllabus?view=monthly&year=${academicYear}&class=${encodeURIComponent(className)}&subject=${encodeURIComponent(subject)}&month=${summary.missing[0]}`
+    : null;
+
   return (
     <form className="assess-setup" onSubmit={handleSubmit}>
-      <div className="assess-setup-grid">
-        <div>
-          <label htmlFor="assess-class">Class</label>
-          <select id="assess-class" value={className} onChange={(e) => changeClass(e.target.value)}>
-            {classOptions.map((option) => <option key={option} value={option}>{option}</option>)}
-          </select>
-        </div>
-        <div>
-          <label htmlFor="assess-subject">Subject</label>
-          <select id="assess-subject" value={subject} onChange={(e) => changeSubject(e.target.value)}>
-            {subjects.map((option) => <option key={option} value={option}>{option}</option>)}
-          </select>
-        </div>
-      </div>
-
-      {isCurrent ? (
-        <div className="assess-block">
-          <label>Syllabus covered so far</label>
-          {areas.length > 0 ? (
-            areas.map((area) => (
-              <div className="assess-area" key={area.area}>
-                <p className="assess-area-title">{area.area}</p>
-                <div className="assess-chip-row">
-                  {area.topics.map((topic) => {
-                    const on = topics.includes(topic);
-                    return (
-                      <button type="button" key={topic} className={`assess-chip ${on ? "on" : ""}`} aria-pressed={on} onClick={() => toggleTopic(topic)}>
-                        {on ? <Check size={13} /> : null} {topic}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))
-          ) : (
-            <p className="cell-muted">No built-in syllabus for {className} {subject} yet — add the topics taught so far below.</p>
-          )}
-
-          <div className="assess-add-topic">
-            <input
-              value={customTopic}
-              placeholder={areas.length > 0 ? "Add another topic…" : "Type a topic, e.g. Fractions"}
-              onChange={(e) => setCustomTopic(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  addCustomTopic();
-                }
-              }}
-              aria-label="Add a topic"
-            />
-            <button type="button" className="secondary-btn" onClick={addCustomTopic} disabled={!customTopic.trim()}>
-              <Plus size={16} /> Add
-            </button>
-          </div>
-          {customTopics.length > 0 ? (
-            <div className="assess-chip-row">
-              {customTopics.map((topic) => (
-                <button type="button" key={topic} className="assess-chip on" onClick={() => toggleTopic(topic)} aria-label={`Remove ${topic}`}>
-                  {topic} <X size={13} />
-                </button>
-              ))}
-            </div>
-          ) : null}
-
-          <label htmlFor="assess-progress">Monthly progress note <span className="cell-muted">(optional)</span></label>
-          <input id="assess-progress" value={progressNote} placeholder="e.g. Completed up to May; multiplication just started" onChange={(e) => setProgressNote(e.target.value)} />
-        </div>
-      ) : (
-        <div className="assess-block">
-          <label>Syllabus covered</label>
-          {builtInTopics.length > 0 ? (
-            <>
-              <p className="cell-muted">The end-term paper covers the whole {className} {subject} syllabus:</p>
-              <div className="assess-chip-row">
-                {builtInTopics.map((topic) => <span className="assess-chip on static" key={topic}>{topic}</span>)}
-              </div>
-            </>
-          ) : (
-            <p className="cell-muted">The paper will cover the standard {className} {subject} syllabus for the whole term.</p>
-          )}
-        </div>
-      )}
-
       <div className="assess-block">
-        <label htmlFor="assess-student">Student</label>
+        <label htmlFor="assess-student">Student name</label>
         {students.length > 0 ? (
-          <select id="assess-student" value={studentId} onChange={(e) => setStudentId(e.target.value)}>
+          <select id="assess-student" value={studentId} onChange={(e) => changeStudent(e.target.value)}>
             <option value="">Select a student…</option>
             {students.map((item) => <option key={item.id} value={item.id}>{item.name}{item.className ? ` — ${item.className}` : ""}</option>)}
           </select>
         ) : (
-          <p className="cell-muted">You haven't added any students yet.</p>
+          <p className="cell-muted">No students yet — add the first one below.</p>
         )}
 
         {adding ? (
@@ -202,10 +154,102 @@ const AssessmentSetup = ({ kind, teacherId, students, onStudentAdded, onStart, b
         {studentError ? <p className="inline-error"><AlertTriangle size={14} /> {studentError}</p> : null}
       </div>
 
-      <button type="submit" className="primary-btn full" disabled={!canStart || busy}>
-        {busy ? "Preparing the paper…" : "Generate 20-question assessment"}
+      <div className="assess-setup-grid four">
+        <div>
+          <label htmlFor="assess-class">Class</label>
+          <select id="assess-class" value={className} onChange={(e) => changeClass(e.target.value)}>
+            {classOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="assess-year">Academic year</label>
+          <select id="assess-year" value={academicYear} onChange={(e) => setAcademicYear(e.target.value)}>
+            {years.map((option) => <option key={option} value={option}>{option}</option>)}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="assess-subject">Subject</label>
+          <select id="assess-subject" value={subject} onChange={(e) => setSubject(e.target.value)}>
+            {subjects.map((option) => <option key={option} value={option}>{option}</option>)}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="assess-month">Month</label>
+          <select id="assess-month" value={periodKey} onChange={(e) => setPeriodKey(e.target.value)}>
+            <optgroup label="Month (monthly assessment)">
+              {ACADEMIC_MONTHS.map((month) => <option key={month} value={month}>{month}</option>)}
+            </optgroup>
+            <optgroup label="Whole term (end-term assessment)">
+              {TERMS.map((term) => <option key={term.id} value={`term:${term.id}`}>{termLabel(term)}</option>)}
+            </optgroup>
+          </select>
+        </div>
+      </div>
+
+      <section className="assess-block syl-preview" aria-live="polite">
+        <div className="syl-preview-head">
+          <h4><span aria-hidden="true">📚</span> Syllabus for {period.label}</h4>
+          {entries === null ? <span className="cell-muted">Loading…</span> : null}
+        </div>
+
+        {syllabusError ? (
+          <p className="inline-error"><AlertTriangle size={14} /> {syllabusError}. Run the latest supabase/schema.sql so the syllabus table exists.</p>
+        ) : null}
+
+        {summary ? summary.months.map((item) => (
+          item.topics.length > 0 ? (
+            <div className="syl-preview-month" key={item.month}>
+              <p className="syl-preview-month-name">
+                {!singleMonth ? <>{item.month} </> : null}
+                <span className={`syl-source ${item.source}`}>{item.source === "school" ? "School syllabus" : "My syllabus"}</span>
+              </p>
+              <ul>{item.topics.map((topic, index) => <li key={index}>{topic}</li>)}</ul>
+            </div>
+          ) : (
+            <p className="syl-missing" key={item.month}>
+              <AlertTriangle size={14} /> No syllabus added for {item.month} yet.
+            </p>
+          )
+        )) : null}
+
+        {summary && summary.topics.length === 0 ? (
+          <p className="cell-muted">
+            The assessment only asks about topics that have been taught, so {singleMonth ? "add this month's syllabus" : "add the syllabus for this term's months"} first.
+          </p>
+        ) : null}
+
+        {summary && singleMonth ? (
+          <>
+            {hasTopics ? (
+              <button type="button" className="assess-link" onClick={() => setEditing((on) => !on)}>
+                {editing ? "Hide the editor" : "Edit this month's syllabus"}
+              </button>
+            ) : null}
+            {!hasTopics || editing ? (
+              <MonthSyllabusEditor
+                key={`${academicYear}|${className}|${subject}|${period.key}`}
+                userId={userId}
+                isAdmin={isAdmin}
+                academicYear={academicYear}
+                className={className}
+                subject={subject}
+                month={period.months[0]}
+                entries={entries}
+                onSaved={() => loadEntries()}
+              />
+            ) : null}
+          </>
+        ) : null}
+
+        {summary && !singleMonth && missingLink ? (
+          <Link to={missingLink} className="assess-link">Add the missing months in the Syllabus section →</Link>
+        ) : null}
+      </section>
+
+      <button type="submit" className="primary-btn full" disabled={!student || !hasTopics}>
+        Continue to evaluation <ArrowRight size={16} />
       </button>
-      {!canStart && student ? <p className="cell-muted assess-hint">Pick at least one topic the class has covered, or write a progress note.</p> : null}
+      {!student ? <p className="cell-muted assess-hint">Choose a student to begin.</p> : !hasTopics && summary ? <p className="cell-muted assess-hint">Add the syllabus above to continue.</p> : null}
     </form>
   );
 };

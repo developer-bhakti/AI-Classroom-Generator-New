@@ -1,37 +1,20 @@
 import React, { useMemo, useState } from "react";
 import Navbar from "../Components/Navbar";
 import Sidebar from "../Components/Sidebar";
-import { Bookmark, BookmarkCheck, AlertTriangle, PlayCircle, CheckCircle2, XCircle, RotateCcw, ListChecks } from "lucide-react";
+import { Bookmark, BookmarkCheck, AlertTriangle, PlayCircle, CheckCircle2, XCircle, RotateCcw, ListChecks, Target } from "lucide-react";
 import { generateResource } from "../Services/aiService";
 import { describeGeminiError } from "../Services/geminiService";
 import { recordHistory, saveContent, removeSavedContent } from "../Services/contentStore";
 import { getResourcePalette } from "../Services/resourcePalette";
-
-const classOptions = ["PG", "Nursery", "LKG", "UKG", ...Array.from({ length: 12 }, (_, index) => `Class ${index + 1}`)];
-
-const subjectMap = {
-  "PG": ["English", "Math", "EVS"],
-  "Nursery": ["English", "Math", "EVS"],
-  "LKG": ["English", "Math", "EVS"],
-  "UKG": ["English", "Math", "EVS"],
-  "Class 1": ["English", "Math", "EVS"],
-  "Class 2": ["English", "Math", "EVS"],
-  "Class 3": ["English", "Math", "Science"],
-  "Class 4": ["English", "Math", "Science"],
-  "Class 5": ["English", "Math", "Science"],
-  "Class 6": ["English", "Math", "Science", "Social Studies"],
-  "Class 7": ["English", "Math", "Science", "Social Studies"],
-  "Class 8": ["English", "Math", "Science", "Social Studies"],
-  "Class 9": ["English", "Math", "Science", "History"],
-  "Class 10": ["English", "Math", "Science", "History"],
-  "Class 11": ["Physics", "Chemistry", "Biology", "Math"],
-  "Class 12": ["Physics", "Chemistry", "Biology", "Math", "Computer Science"]
-};
+import { classOptions, subjectMap } from "../Services/curriculum";
+import { LEVEL_BANDS, describeBand, toneForLevelLabel } from "../Services/assessmentGrading";
+import { buildRound, scoreRound, studentMessage, wrongSourceIndexes } from "../Services/quizRounds";
+import { LevelPill, ScoreRing } from "../Components/assessment/Badges";
 
 const OPTION_LABELS = ["A", "B", "C", "D"];
 
 const QuizGenerator = () => {
-  const [formData, setFormData] = useState({ topic: "World History", className: "Class 6", subject: "Social Studies", duration: "15 mins", objective: "Check recall and comprehension" });
+  const [formData, setFormData] = useState({ topic: "Plants Around Us", className: "Class 3", subject: "Science", duration: "15 mins", objective: "Check recall and comprehension" });
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [entry, setEntry] = useState(null);
@@ -40,8 +23,11 @@ const QuizGenerator = () => {
   const [outputPalette, setOutputPalette] = useState(null);
 
   const [stage, setStage] = useState("preview"); // preview | active | results
+  const [round, setRound] = useState(1); // round 1 is the whole quiz; later rounds are only the questions missed
+  const [roundItems, setRoundItems] = useState([]); // this round's questions, options freshly shuffled
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState([]);
+  const [history, setHistory] = useState([]); // one summary per finished round
 
   const subjects = useMemo(() => subjectMap[formData.className] || [], [formData.className]);
   // The form previews the colour live; once generated the card keeps the palette it was
@@ -68,8 +54,11 @@ const QuizGenerator = () => {
       setSaved(false);
       setOutputPalette(formPalette);
       setStage("preview");
+      setRound(1);
+      setRoundItems([]);
       setCurrentIndex(0);
-      setAnswers(new Array(resource.questions?.length || 0).fill(null));
+      setAnswers([]);
+      setHistory([]);
     } catch (err) {
       setError(describeGeminiError(err));
     } finally {
@@ -95,16 +84,25 @@ const QuizGenerator = () => {
   const questions = useMemo(() => result?.questions || [], [result]);
   const total = questions.length;
 
-  const score = useMemo(() => {
-    if (stage !== "results") return 0;
-    return questions.reduce((count, q, index) => (answers[index] === q.correctIndex ? count + 1 : count), 0);
-  }, [stage, questions, answers]);
+  const roundTotal = roundItems.length;
+  const scored = useMemo(() => (stage === "results" ? scoreRound(roundItems, answers) : null), [stage, roundItems, answers]);
 
-  const startQuiz = () => {
-    setAnswers(new Array(total).fill(null));
+  const beginRound = (nextRound, sourceIndexes) => {
+    const items = buildRound(questions, sourceIndexes);
+    setRound(nextRound);
+    setRoundItems(items);
+    setAnswers(new Array(items.length).fill(null));
     setCurrentIndex(0);
     setStage("active");
   };
+
+  const startQuiz = () => {
+    setHistory([]);
+    beginRound(1);
+  };
+
+  // Round 2, 3, ...: only the questions that were answered wrongly in the round just finished.
+  const practiseMissed = () => beginRound(round + 1, wrongSourceIndexes(scored));
 
   const selectOption = (optionIndex) => {
     setAnswers((prev) => {
@@ -117,17 +115,13 @@ const QuizGenerator = () => {
   const goPrevious = () => setCurrentIndex((index) => Math.max(0, index - 1));
 
   const goNext = () => {
-    if (currentIndex === total - 1) {
+    if (currentIndex === roundTotal - 1) {
+      const finished = scoreRound(roundItems, answers);
+      setHistory((prev) => [...prev, { round, correct: finished.correct, total: finished.total, percentage: finished.percentage, label: finished.level.label }]);
       setStage("results");
     } else {
-      setCurrentIndex((index) => Math.min(total - 1, index + 1));
+      setCurrentIndex((index) => Math.min(roundTotal - 1, index + 1));
     }
-  };
-
-  const retakeQuiz = () => {
-    setAnswers(new Array(total).fill(null));
-    setCurrentIndex(0);
-    setStage("active");
   };
 
   const backToOverview = () => setStage("preview");
@@ -190,17 +184,17 @@ const QuizGenerator = () => {
                   </div>
                 )}
 
-                {stage === "active" && total > 0 && (
+                {stage === "active" && roundTotal > 0 && (
                   <div className="quiz-active">
                     <div className="quiz-progress-row">
-                      <span>Question {currentIndex + 1} of {total}</span>
+                      <span>{round > 1 ? `Practice round ${round} · ` : ""}Question {currentIndex + 1} of {roundTotal}</span>
                       <div className="quiz-progress-track">
-                        <div className="quiz-progress-fill" style={{ width: `${((currentIndex + 1) / total) * 100}%` }} />
+                        <div className="quiz-progress-fill" style={{ width: `${((currentIndex + 1) / roundTotal) * 100}%` }} />
                       </div>
                     </div>
-                    <h4 className="quiz-question-text">{questions[currentIndex].question}</h4>
+                    <h4 className="quiz-question-text">{roundItems[currentIndex].question}</h4>
                     <div className="quiz-options">
-                      {questions[currentIndex].options.map((option, optionIndex) => (
+                      {roundItems[currentIndex].options.map((option, optionIndex) => (
                         <button
                           type="button"
                           key={optionIndex}
@@ -217,49 +211,97 @@ const QuizGenerator = () => {
                         Previous
                       </button>
                       <button type="button" className="primary-btn" onClick={goNext} disabled={answers[currentIndex] == null}>
-                        {currentIndex === total - 1 ? "Finish Quiz" : "Next"}
+                        {currentIndex === roundTotal - 1 ? "Finish Quiz" : "Next"}
                       </button>
                     </div>
                   </div>
                 )}
 
-                {stage === "results" && (
+                {stage === "results" && scored && (
                   <div className="quiz-results">
-                    <div className="quiz-score-card">
-                      <strong>{score} / {total}</strong>
-                      <span>You scored {total ? Math.round((score / total) * 100) : 0}%</span>
+                    <div className="quiz-score-hero">
+                      <span className="quiz-round-tag">{round === 1 ? "Your score" : `Practice round ${round}`}</span>
+                      <ScoreRing percentage={scored.percentage} />
+                      <strong>{scored.correct} / {scored.total}</strong>
+                      <LevelPill percentage={scored.percentage} />
                     </div>
-                    <div className="quiz-review-list">
-                      {questions.map((q, index) => {
-                        const userAnswer = answers[index];
-                        const isCorrect = userAnswer === q.correctIndex;
-                        return (
-                          <div key={index} className={`quiz-review-item ${isCorrect ? "correct" : "incorrect"}`}>
-                            <div className="quiz-review-question">
-                              {isCorrect ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
-                              <span>{index + 1}. {q.question}</span>
+
+                    <p className={`quiz-student-message quiz-message-${toneForLevelLabel(scored.level.label)}`}>
+                      {studentMessage({ scored, round })}
+                    </p>
+
+                    {history.length > 1 && (
+                      <div className="quiz-rounds-trail">
+                        <ol>
+                          {history.map((past) => (
+                            <li key={past.round}>
+                              <span>Round {past.round}</span>
+                              <strong>{past.correct}/{past.total}</strong>
+                              <span>{past.percentage}% · {past.label}</span>
+                            </li>
+                          ))}
+                        </ol>
+                        <p>You have now got {total - scored.wrong.length} of {total} questions right.</p>
+                      </div>
+                    )}
+
+                    {scored.wrong.length > 0 && (
+                      <section className="quiz-work-on">
+                        <h4><Target size={16} /> Work on this part ({scored.wrong.length})</h4>
+                        <div className="quiz-review-list quiz-work-list">
+                          {scored.wrong.map((item) => (
+                            <div key={item.sourceIndex} className="quiz-review-item incorrect">
+                              <div className="quiz-review-question">
+                                <XCircle size={16} />
+                                <span>{item.sourceIndex + 1}. {item.question}</span>
+                              </div>
+                              <ul className="quiz-review-options">
+                                {item.options.map((option, optionIndex) => {
+                                  const isRight = optionIndex === item.correctIndex;
+                                  const isChosen = optionIndex === item.chosenIndex;
+                                  return (
+                                    <li key={optionIndex} className={isRight ? "correct" : isChosen ? "incorrect" : ""}>
+                                      {OPTION_LABELS[optionIndex]}. {option}
+                                      {isRight && <span className="quiz-review-tag">correct answer</span>}
+                                      {isChosen && !isRight && <span className="quiz-review-tag">your answer</span>}
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                              {item.explanation ? <p className="quiz-review-why"><strong>Why:</strong> {item.explanation}</p> : null}
                             </div>
-                            <ul className="quiz-review-options">
-                              {q.options.map((option, optionIndex) => {
-                                let optionClass = "";
-                                if (optionIndex === q.correctIndex) optionClass = "correct";
-                                else if (optionIndex === userAnswer) optionClass = "incorrect";
-                                return (
-                                  <li key={optionIndex} className={optionClass}>
-                                    {OPTION_LABELS[optionIndex]}. {option}
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div className="quiz-nav-row">
+                          ))}
+                        </div>
+                      </section>
+                    )}
+
+                    {scored.right.length > 0 && (
+                      <details className="quiz-right-list">
+                        <summary><CheckCircle2 size={16} /> You got {scored.right.length} right</summary>
+                        <ul>
+                          {scored.right.map((item) => (
+                            <li key={item.sourceIndex}>{item.sourceIndex + 1}. {item.question} <strong>{item.options[item.correctIndex]}</strong></li>
+                          ))}
+                        </ul>
+                      </details>
+                    )}
+
+                    <p className="quiz-level-legend">{LEVEL_BANDS.map(describeBand).join(" · ")}</p>
+
+                    <div className="quiz-nav-row quiz-result-actions">
                       <button type="button" className="secondary-btn" onClick={backToOverview}>Back to overview</button>
-                      <button type="button" className="primary-btn" onClick={retakeQuiz}>
-                        <RotateCcw size={16} /> Retake Quiz
-                      </button>
+                      {scored.wrong.length > 0 ? (
+                        <>
+                          <button type="button" className="secondary-btn" onClick={startQuiz}>Retake whole quiz</button>
+                          <button type="button" className="primary-btn" onClick={practiseMissed}>
+                            <RotateCcw size={16} /> Practise the {scored.wrong.length} missed question{scored.wrong.length === 1 ? "" : "s"}
+                          </button>
+                        </>
+                      ) : (
+                        <button type="button" className="primary-btn" onClick={startQuiz}>
+                          <RotateCcw size={16} /> Take the whole quiz again
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}

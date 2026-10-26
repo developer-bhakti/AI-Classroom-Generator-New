@@ -1,10 +1,32 @@
 import React, { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
 import Navbar from "../Components/Navbar";
 import Sidebar from "../Components/Sidebar";
-import { FileText, BookOpen, HelpCircle, Sparkles, ArrowRight, PencilRuler, Languages, CalendarCheck, ClipboardList, BarChart3 } from "lucide-react";
+import { FileText, BookOpen, HelpCircle, Sparkles, ArrowRight, PencilRuler, Languages } from "lucide-react";
 import { LANGUAGES, getLanguage, setLanguage } from "../Services/contentStore";
+import { useAuth } from "../context/useAuth";
+import {
+  ACADEMIC_MONTHS,
+  TERMS,
+  academicYearOptions,
+  classOptions,
+  currentAcademicYear,
+  currentMonthName,
+  subjectMap,
+  termLabel
+} from "../Services/curriculum";
+
+// The seven doors into the child-assessment side of the app. `tint` picks the card's pastel colour.
+const HUB_CARDS = [
+  { emoji: "📚", title: "Annual Syllabus", text: "Add the whole year, term by term", to: "/syllabus?view=annual", tint: "lavender" },
+  { emoji: "📅", title: "Monthly Syllabus", text: "Topics and learning outcomes for each month", to: "/syllabus?view=monthly", tint: "sky" },
+  { emoji: "👧", title: "Student Details", text: "Each child, their class and their progress", to: "/students?view=details", tint: "pink" },
+  { emoji: "📝", title: "Assessment", text: "A 20-question paper on what has been taught", to: "/assessment", tint: "sun" },
+  { emoji: "📊", title: "Results", text: "Scores, levels and every past assessment", to: "/students?view=results", tint: "mint" },
+  { emoji: "🎯", title: "Areas of Improvement", text: "Where each child should practise next", to: "/students?view=improvement", tint: "peach" },
+  { emoji: "📄", title: "Progress Report", text: "A parent-friendly report to download or print", to: "/students?view=report", tint: "lilac" }
+];
 
 const cards = [
   {
@@ -40,13 +62,34 @@ const quickStats = [
 ];
 
 const Dashboard = () => {
+  const navigate = useNavigate();
+  const { profile } = useAuth();
   const [selected, setSelected] = useState("worksheet");
   const [showCustomize, setShowCustomize] = useState(false);
   const [language, setLanguageState] = useState(() => getLanguage());
 
+  const [academicYear, setAcademicYear] = useState(() => currentAcademicYear());
+  const [className, setClassName] = useState("UKG");
+  const [subject, setSubject] = useState("English");
+  const [period, setPeriod] = useState(() => currentMonthName());
+
+  const years = useMemo(() => academicYearOptions(), []);
+  const firstName = (profile?.full_name || "").trim().split(/\s+/)[0];
+
   const handleSelectLanguage = (lang) => {
     setLanguage(lang);
     setLanguageState(lang);
+  };
+
+  const changeClass = (value) => {
+    setClassName(value);
+    setSubject((current) => (subjectMap[value].includes(current) ? current : subjectMap[value][0]));
+  };
+
+  const checkChild = (e) => {
+    e.preventDefault();
+    const query = new URLSearchParams({ year: academicYear, class: className, subject, month: period });
+    navigate(`/assessment?${query.toString()}`);
   };
 
   const featureCopy = useMemo(() => ({
@@ -77,6 +120,63 @@ const Dashboard = () => {
         <Navbar title="Dashboard" />
 
         <div className="content-area">
+          <section className="child-check">
+            <div className="child-check-copy">
+              <p className="eyebrow">{firstName ? `Hello, ${firstName}` : "Hello"} <span aria-hidden="true">👋</span></p>
+              <h1>Is my child&apos;s knowledge as expected?</h1>
+              <p className="hero-text">
+                Pick the year, class, subject and month. We load that month&apos;s syllabus and check your child only on what has already been taught.
+              </p>
+            </div>
+            <form className="child-check-form" onSubmit={checkChild}>
+              <div>
+                <label htmlFor="cc-year">Academic year</label>
+                <select id="cc-year" value={academicYear} onChange={(e) => setAcademicYear(e.target.value)}>
+                  {years.map((option) => <option key={option} value={option}>{option}</option>)}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="cc-class">Class</label>
+                <select id="cc-class" value={className} onChange={(e) => changeClass(e.target.value)}>
+                  {classOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="cc-subject">Subject</label>
+                <select id="cc-subject" value={subject} onChange={(e) => setSubject(e.target.value)}>
+                  {(subjectMap[className] || []).map((option) => <option key={option} value={option}>{option}</option>)}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="cc-month">Month</label>
+                <select id="cc-month" value={period} onChange={(e) => setPeriod(e.target.value)}>
+                  <optgroup label="Month">
+                    {ACADEMIC_MONTHS.map((month) => <option key={month} value={month}>{month}</option>)}
+                  </optgroup>
+                  <optgroup label="Whole term (end-term)">
+                    {TERMS.map((term) => <option key={term.id} value={`term:${term.id}`}>{termLabel(term)}</option>)}
+                  </optgroup>
+                </select>
+              </div>
+              <button type="submit" className="primary-btn child-check-go">
+                Check my child <ArrowRight size={16} />
+              </button>
+            </form>
+          </section>
+
+          <section className="hub-grid" aria-label="Child assessment">
+            {HUB_CARDS.map((card) => (
+              <Link key={card.title} to={card.to} className={`hub-card hub-${card.tint}`}>
+                <span className="hub-emoji" aria-hidden="true">{card.emoji}</span>
+                <h3>{card.title}</h3>
+                <p>{card.text}</p>
+                <span className="hub-open">Open <ArrowRight size={15} /></span>
+              </Link>
+            ))}
+          </section>
+
+          <h2 className="section-heading hub-tools-heading">Teaching tools</h2>
+
           <section className="hero-card hero-card-rich">
             <div className="hero-copy">
               <p className="eyebrow">Adiuvaret AI Classroom Generator</p>
@@ -94,26 +194,6 @@ const Dashboard = () => {
               </div>
             </div>
             <div className="hero-orb" />
-          </section>
-
-          <section className="feature-panel assess-entry">
-            <h3>Assess &amp; Manage Current Academic Skills of the Child</h3>
-            <p className="cell-muted">AI writes a 20-question paper, marks it, finds the weak skills, then teaches and re-tests just those.</p>
-            <div className="assess-entry-options">
-              <Link to="/assessment?type=end_term" className="resource-card">
-                <div className="resource-icon"><CalendarCheck size={22} /></div>
-                <h3>End-Term Assessment</h3>
-                <p>Whole-term syllabus for a class and subject.</p>
-                <span className="resource-link">Start <ArrowRight size={16} /></span>
-              </Link>
-              <Link to="/assessment?type=current" className="resource-card">
-                <div className="resource-icon"><ClipboardList size={22} /></div>
-                <h3>Current Academic Assessment</h3>
-                <p>Only what the class has covered so far.</p>
-                <span className="resource-link">Start <ArrowRight size={16} /></span>
-              </Link>
-            </div>
-            <Link to="/students" className="resource-link assess-entry-progress"><BarChart3 size={16} /> View student progress</Link>
           </section>
 
           <section className="stats-grid">

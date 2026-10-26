@@ -6,6 +6,7 @@ export const ACTIVITY_LABELS = {
   resource_generated: "Generated a resource",
   assessment_completed: "Completed a student assessment",
   teaching_session_completed: "Ran an AI teaching session",
+  teacher_requested: "Requested an online teacher",
   subscription_renewed: "Renewed subscription",
   subscription_granted: "Subscription granted by admin",
   subscription_paused: "Subscription paused by admin",

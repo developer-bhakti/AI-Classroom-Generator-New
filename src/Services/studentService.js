@@ -1,6 +1,6 @@
 import { supabase } from "./supabaseClient";
 import { logActivity } from "./activityLog";
-import { MASTERY_THRESHOLD, findSkillKey } from "./assessmentGrading";
+import { MASTERY_THRESHOLD, findSkillKey, getPerformanceLevel } from "./assessmentGrading";
 
 // Everything here is scoped to the signed-in teacher by row-level security; teacherId is passed in
 // only because inserts must stamp it on the row.
@@ -25,6 +25,9 @@ const fromAssessmentRow = (row) => ({
   subject: row.subject,
   topics: row.topics || [],
   progressNote: row.progress_note || "",
+  academicYear: row.academic_year || "",
+  // The month assessed ("October"), or the term for an end-term paper ("Term 3 (October–December)").
+  month: row.month || "",
   focusSkill: row.focus_skill || null,
   questions: row.questions || [],
   answers: row.answers || [],
@@ -33,10 +36,15 @@ const fromAssessmentRow = (row) => ({
   total: row.total,
   correct: row.correct,
   percentage: Number(row.percentage),
-  level: row.level,
+  // Always worked out from the score: the stored label may predate a change to the level bands.
+  level: getPerformanceLevel(Number(row.percentage)).label,
   weakAreas: row.weak_areas || [],
   skillResults: row.skill_results || [],
   recommendations: row.recommendations || [],
+  improvementPlan: row.improvement_plan || [],
+  // What the teacher observed for each syllabus topic before the paper: [{ topic, rating }].
+  skillRatings: row.skill_ratings || [],
+  teacherRemarks: row.teacher_remarks || "",
   summary: row.summary || "",
   createdAt: row.created_at
 });
@@ -75,6 +83,14 @@ export const addStudent = async ({ teacherId, name, className }) => {
   return fromStudentRow(row);
 };
 
+export const updateStudent = async (studentId, { name, className }) => {
+  const row = unwrap(
+    await supabase.from("students").update({ name: name.trim(), class_name: className }).eq("id", studentId).select().single(),
+    "update the student"
+  );
+  return fromStudentRow(row);
+};
+
 export const deleteStudent = async (studentId) => {
   unwrap(await supabase.from("students").delete().eq("id", studentId), "remove the student");
 };
@@ -87,6 +103,14 @@ export const listAssessments = async (studentId) => {
     "load assessments"
   );
   return rows.map(fromAssessmentRow);
+};
+
+/** The teacher's note to the parents, edited after the paper (it is printed on the progress report). */
+export const updateAssessmentRemarks = async (assessmentId, remarks) => {
+  unwrap(
+    await supabase.from("assessments").update({ teacher_remarks: remarks.trim() }).eq("id", assessmentId),
+    "save the teacher's remarks"
+  );
 };
 
 /** What a new paper should know about this child: skills still unmastered and the last full-paper score. */
@@ -113,6 +137,8 @@ export const saveAssessment = async ({ teacherId, studentId, assessment }) => {
     subject: assessment.subject,
     topics: assessment.topics || [],
     progress_note: assessment.progressNote || "",
+    academic_year: assessment.academicYear || "",
+    month: assessment.month || "",
     focus_skill: assessment.focusSkill || null,
     questions: assessment.questions,
     answers: assessment.answers,
@@ -124,6 +150,9 @@ export const saveAssessment = async ({ teacherId, studentId, assessment }) => {
     weak_areas: assessment.weakAreas,
     skill_results: assessment.skillResults,
     recommendations: assessment.recommendations,
+    improvement_plan: assessment.improvementPlan || [],
+    skill_ratings: assessment.skillRatings || [],
+    teacher_remarks: assessment.teacherRemarks || "",
     summary: assessment.summary
   };
 
@@ -207,4 +236,58 @@ export const saveTeachingSession = async ({ teacherId, studentId, assessmentId, 
     "save the teaching session"
   );
   logActivity(teacherId, "teaching_session_completed", { subject, skill });
+};
+
+// ---- Online teacher requests ----
+
+export const REQUEST_STATUS_LABELS = {
+  requested: "Requested",
+  assigned: "Teacher assigned",
+  completed: "Completed",
+  cancelled: "Cancelled"
+};
+
+const fromRequestRow = (row) => ({
+  id: row.id,
+  studentId: row.student_id,
+  assessmentId: row.assessment_id,
+  className: row.class_name,
+  subject: row.subject,
+  areas: row.areas || [],
+  preferredTime: row.preferred_time,
+  contact: row.contact,
+  note: row.note,
+  status: row.status,
+  createdAt: row.created_at
+});
+
+export const createTeacherRequest = async ({ teacherId, studentId, assessmentId, className, subject, areas, preferredTime, contact, note }) => {
+  const row = unwrap(
+    await supabase
+      .from("teacher_requests")
+      .insert({
+        teacher_id: teacherId,
+        student_id: studentId,
+        assessment_id: assessmentId || null,
+        class_name: className,
+        subject,
+        areas,
+        preferred_time: preferredTime,
+        contact: contact.trim(),
+        note: note.trim()
+      })
+      .select()
+      .single(),
+    "send the teacher request"
+  );
+  logActivity(teacherId, "teacher_requested", { subject, areas });
+  return fromRequestRow(row);
+};
+
+export const listTeacherRequests = async (studentId) => {
+  const rows = unwrap(
+    await supabase.from("teacher_requests").select("*").eq("student_id", studentId).order("created_at", { ascending: false }),
+    "load teacher requests"
+  );
+  return rows.map(fromRequestRow);
 };

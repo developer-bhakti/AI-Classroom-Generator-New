@@ -1,18 +1,23 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
-  AlertTriangle, ArrowLeft, BarChart3, CalendarCheck, ClipboardList, Download, GraduationCap,
-  PartyPopper, RefreshCw, RotateCcw
+  AlertTriangle, ArrowLeft, BarChart3, Download, GraduationCap, PartyPopper, RefreshCw, RotateCcw
 } from "lucide-react";
 import Navbar from "../Components/Navbar";
 import Sidebar from "../Components/Sidebar";
 import AssessmentSetup from "../Components/assessment/AssessmentSetup";
+import SkillEvaluation from "../Components/assessment/SkillEvaluation";
 import QuestionPlayer from "../Components/assessment/QuestionPlayer";
 import AssessmentResults from "../Components/assessment/AssessmentResults";
+import ReportView from "../Components/assessment/ReportView";
 import TutorSession from "../Components/assessment/TutorSession";
+import TeacherSupport from "../Components/assessment/TeacherSupport";
+import ImprovementPlan from "../Components/assessment/ImprovementPlan";
 import { useAuth } from "../context/useAuth";
 import { describeGeminiError } from "../Services/geminiService";
 import { MASTERY_THRESHOLD, blankAnswerFor } from "../Services/assessmentGrading";
+import { flattenSyllabus } from "../Services/assessmentPrompts";
+import { classOptions, parsePeriod, subjectMap } from "../Services/curriculum";
 import {
   ASSESSMENT_LENGTH,
   PRACTICE_LENGTH,
@@ -28,33 +33,29 @@ import {
   saveTeachingSession
 } from "../Services/studentService";
 
-const KIND_META = {
-  end_term: {
-    label: "End-Term Assessment",
-    blurb: "A 20-question paper covering the whole term's syllabus for a class and subject.",
-    icon: CalendarCheck
-  },
-  current: {
-    label: "Current Academic Assessment",
-    blurb: "A 20-question paper on only what the class has completed so far this month.",
-    icon: ClipboardList
-  }
+// Stages where leaving the page would throw away work already done.
+const IN_PROGRESS_STAGES = new Set(["evaluate", "taking", "teaching", "practice-taking"]);
+
+// The dashboard hands over its selections in the URL; anything that does not check out is ignored.
+const readInitialSelection = (params) => {
+  const className = classOptions.includes(params.get("class")) ? params.get("class") : undefined;
+  const subject = className && subjectMap[className].includes(params.get("subject")) ? params.get("subject") : undefined;
+  const year = /^\d{4}-\d{2}$/.test(params.get("year") || "") ? params.get("year") : undefined;
+  const periodKey = parsePeriod(params.get("month")) ? params.get("month") : undefined;
+  return { className, subject, academicYear: year, periodKey, studentId: params.get("student") || "" };
 };
 
-// Stages where leaving the page would throw away work the child has already done.
-const IN_PROGRESS_STAGES = new Set(["taking", "teaching", "practice-taking"]);
-
 const Assessment = () => {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [searchParams] = useSearchParams();
-  const initialKind = KIND_META[searchParams.get("type")] ? searchParams.get("type") : null;
+  const initial = useMemo(() => readInitialSelection(searchParams), [searchParams]);
 
-  const [stage, setStage] = useState(initialKind ? "setup" : "choose");
-  const [kind, setKind] = useState(initialKind);
+  const [stage, setStage] = useState("setup");
   const [students, setStudents] = useState([]);
   const [studentsError, setStudentsError] = useState(null);
 
   const [config, setConfig] = useState(null);
+  const [ratings, setRatings] = useState({});
   const [paper, setPaper] = useState(null);
   const [answers, setAnswers] = useState([]);
   const [record, setRecord] = useState(null);
@@ -71,6 +72,14 @@ const Assessment = () => {
   // Bumped whenever the flow is abandoned or restarted, so a slow Gemini reply for the old run
   // can't land on top of the new one.
   const runRef = useRef(0);
+
+  // Coming back from the evaluation step must not wipe what the teacher just chose.
+  const setupInitial = useMemo(() => (config
+    ? { studentId: config.student.id, className: config.className, subject: config.subject, academicYear: config.academicYear, periodKey: config.period.key }
+    : initial), [config, initial]);
+
+  const items = useMemo(() => (config ? flattenSyllabus(config.syllabus) : []), [config]);
+  const ratingList = useCallback(() => items.map((item) => ({ topic: item.text, rating: ratings[item.number] })), [items, ratings]);
 
   useEffect(() => {
     let active = true;
@@ -92,9 +101,9 @@ const Assessment = () => {
 
   const resetAll = useCallback(() => {
     runRef.current += 1;
-    setStage("choose");
-    setKind(null);
+    setStage("setup");
     setConfig(null);
+    setRatings({});
     setPaper(null);
     setAnswers([]);
     setRecord(null);
@@ -106,21 +115,34 @@ const Assessment = () => {
     setPdfError(null);
   }, []);
 
-  const chooseKind = (nextKind) => {
-    setKind(nextKind);
-    setStage("setup");
+  // ---- Choosing the student and the syllabus, then rating each topic ----
+
+  const startEvaluation = (nextConfig) => {
+    setConfig(nextConfig);
+    setRatings({});
+    setStage("evaluate");
   };
 
-  // ---- Full assessment ----
+  const rate = (number, rating) => setRatings((prev) => ({ ...prev, [number]: rating }));
 
-  const startAssessment = async (nextConfig) => {
+  // ---- The 20-question paper ----
+
+  const generatePaper = async () => {
     const run = ++runRef.current;
-    setConfig(nextConfig);
     setError(null);
     setStage("generating");
     try {
-      const history = await getStudentHistory(nextConfig.student.id, nextConfig.subject);
-      const generated = await createAssessmentPaper({ ...nextConfig, history });
+      const history = await getStudentHistory(config.student.id, config.subject);
+      const generated = await createAssessmentPaper({
+        kind: config.period.kind,
+        className: config.className,
+        subject: config.subject,
+        academicYear: config.academicYear,
+        period: config.period,
+        syllabus: config.syllabus,
+        ratings: ratingList(),
+        history
+      });
       if (run !== runRef.current) return;
       setPaper(generated);
       setAnswers(generated.questions.map(blankAnswerFor));
@@ -133,17 +155,27 @@ const Assessment = () => {
 
   const setAnswer = (index, value) => setAnswers((prev) => prev.map((existing, i) => (i === index ? value : existing)));
 
-  const finishPaper = async ({ questions, givenAnswers, base }) => {
+  const finishPaper = async ({ questions, givenAnswers, skillRatings, base }) => {
     setSaveWarning(null);
-    const evaluation = await evaluateAssessment({ questions, answers: givenAnswers, className: config.className, subject: config.subject });
+    const evaluation = await evaluateAssessment({
+      questions,
+      answers: givenAnswers,
+      className: config.className,
+      subject: config.subject,
+      ratings: skillRatings
+    });
     const finished = {
       id: crypto.randomUUID(),
       ...base,
       className: config.className,
       subject: config.subject,
+      academicYear: config.academicYear,
       questions,
       answers: givenAnswers,
+      skillRatings,
       ...evaluation,
+      // The teacher's remarks start as the AI's draft and are theirs to edit on the report.
+      teacherRemarks: evaluation.remarksDraft,
       createdAt: new Date().toISOString(),
       persisted: false
     };
@@ -153,7 +185,7 @@ const Assessment = () => {
       await saveAssessment({ teacherId: user.id, studentId: config.student.id, assessment: finished });
       finished.persisted = true;
     } catch (err) {
-      setSaveWarning(`${err.message}. You can still download the PDF, but this result won't appear in the student's progress.`);
+      setSaveWarning(`${err.message}. You can still print the report or download the PDF, but this result won't appear in the student's progress.`);
     }
     return finished;
   };
@@ -166,7 +198,14 @@ const Assessment = () => {
       const finished = await finishPaper({
         questions: paper.questions,
         givenAnswers: answers,
-        base: { kind, topics: config.topics, progressNote: config.progressNote, focusSkill: null }
+        skillRatings: ratingList(),
+        base: {
+          kind: config.period.kind,
+          topics: items.map((item) => item.text),
+          month: config.period.label,
+          progressNote: "",
+          focusSkill: null
+        }
       });
       if (run !== runRef.current) return;
       setRecord(finished);
@@ -177,18 +216,13 @@ const Assessment = () => {
     }
   };
 
-  // ---- AI teaching and reassessment ----
+  // ---- Optional extras: AI teaching and reassessment ----
 
   const startTeaching = (weakArea) => {
     runRef.current += 1;
     setPractice({ weakArea, paper: null, answers: [], record: null });
     setError(null);
     setStage("teaching");
-  };
-
-  const answerNeedsTeacher = (yes) => {
-    setNeedsTeacher(yes);
-    if (yes && record.weakAreas.length === 1) startTeaching(record.weakAreas[0]);
   };
 
   const generatePractice = async (weakArea) => {
@@ -251,7 +285,8 @@ const Assessment = () => {
       const finished = await finishPaper({
         questions: practicePaper.questions,
         givenAnswers: practiceAnswers,
-        base: { kind: "practice", topics: [weakArea.skill], progressNote: "", focusSkill: weakArea.skill }
+        skillRatings: [],
+        base: { kind: "practice", topics: [weakArea.skill], month: config.period.label, progressNote: "", focusSkill: weakArea.skill }
       });
       if (run !== runRef.current) return;
       setPractice((prev) => ({ ...prev, record: finished }));
@@ -265,7 +300,7 @@ const Assessment = () => {
     }
   };
 
-  // ---- PDF ----
+  // ---- PDF of the paper and its answers ----
 
   const download = async (target) => {
     setDownloading(true);
@@ -300,55 +335,43 @@ const Assessment = () => {
     </div>
   );
 
-  const studentLine = config ? `${config.student.name} · ${config.className} ${config.subject}` : "";
+  const studentLine = config
+    ? `${config.student.name} · ${config.className} ${config.subject} · ${config.period.label}${config.academicYear ? ` · ${config.academicYear}` : ""}`
+    : "";
 
   const renderResultsNextStep = () => {
     if (record.weakAreas.length === 0) {
       return (
         <div className="assess-next assess-next-done">
-          <h4><PartyPopper size={18} /> No online teaching needed</h4>
-          <p>The child has a secure grasp of every skill on this paper.</p>
+          <h4><PartyPopper size={18} /> No online teacher needed</h4>
+          <p>The child has a secure grasp of every topic on this paper.</p>
         </div>
       );
     }
 
     return (
       <div className="assess-next">
-        <h4><GraduationCap size={18} /> Does the child need an online teacher in this area?</h4>
-        <p className="cell-muted">Weak areas: {record.weakAreas.map((area) => area.skill).join(", ")}</p>
+        <h4><GraduationCap size={18} /> Do you need an online teacher in your area of improvement?</h4>
+        <p className="cell-muted">Areas of improvement: {record.weakAreas.map((area) => area.skill).join(", ")}</p>
 
-        {needsTeacher === null ? (
-          <div className="assess-yesno">
-            <button type="button" className="primary-btn" onClick={() => answerNeedsTeacher(true)}>YES</button>
-            <button type="button" className="secondary-btn" onClick={() => answerNeedsTeacher(false)}>NO</button>
-          </div>
+        <div className="assess-yesno" role="group" aria-label="Online teacher">
+          <button type="button" className={needsTeacher === true ? "primary-btn" : "secondary-btn"} aria-pressed={needsTeacher === true} onClick={() => setNeedsTeacher(true)}>Yes</button>
+          <button type="button" className={needsTeacher === false ? "primary-btn" : "secondary-btn"} aria-pressed={needsTeacher === false} onClick={() => setNeedsTeacher(false)}>No</button>
+        </div>
+
+        {needsTeacher === true ? (
+          <TeacherSupport
+            teacherId={user.id}
+            defaultContact={user.email || ""}
+            student={config.student}
+            record={record}
+            className={config.className}
+            subject={config.subject}
+            onStartPractice={startTeaching}
+          />
         ) : null}
 
-        {needsTeacher === true && record.weakAreas.length > 1 ? (
-          <>
-            <p>Which area should the AI teacher start with? It teaches only the area you pick.</p>
-            <div className="assess-pick">
-              {record.weakAreas.map((area) => (
-                <button type="button" key={area.skill} className="secondary-btn" onClick={() => startTeaching(area)}>
-                  {area.skill} <span className="cell-muted">({Math.round(area.percentage)}%)</span>
-                </button>
-              ))}
-            </div>
-          </>
-        ) : null}
-
-        {needsTeacher === true && record.weakAreas.length === 1 ? (
-          <button type="button" className="primary-btn" onClick={() => startTeaching(record.weakAreas[0])}>
-            <GraduationCap size={16} /> Start teaching: {record.weakAreas[0].skill}
-          </button>
-        ) : null}
-
-        {needsTeacher === false ? (
-          <p>
-            No problem — this result is saved to the student's progress.{" "}
-            <button type="button" className="assess-link" onClick={() => setNeedsTeacher(null)}>Changed your mind?</button>
-          </p>
-        ) : null}
+        {needsTeacher === false ? <ImprovementPlan plan={record.improvementPlan || []} /> : null}
       </div>
     );
   };
@@ -393,55 +416,56 @@ const Assessment = () => {
 
   const renderStage = () => {
     switch (stage) {
-      case "choose":
-        return (
-          <>
-            <div className="assess-choose">
-              {Object.entries(KIND_META).map(([key, meta]) => {
-                const Icon = meta.icon;
-                return (
-                  <button type="button" key={key} className="resource-card assess-kind" onClick={() => chooseKind(key)}>
-                    <div className="resource-icon"><Icon size={22} /></div>
-                    <h3>{meta.label}</h3>
-                    <p>{meta.blurb}</p>
-                  </button>
-                );
-              })}
-            </div>
-            <p className="assess-flow-hint cell-muted">
-              Pick a type, choose the class, subject and student, and the AI writes the paper, marks it, finds the weak skills,
-              and can teach and re-test just those. <Link to="/students">See student progress</Link>
-            </p>
-          </>
-        );
-
       case "setup":
         return (
           <>
-            <button type="button" className="assess-link assess-back" onClick={resetAll}><ArrowLeft size={14} /> Change assessment type</button>
-            <h3>{KIND_META[kind].label}</h3>
+            <div>
+              <h3>Select student details</h3>
+              <p className="cell-muted">Pick the child, class, year, subject and month. The syllabus for that month loads automatically, so the child is checked only on what has been taught.</p>
+            </div>
             {studentsError ? <p className="inline-error"><AlertTriangle size={14} /> {studentsError}. Run the latest supabase/schema.sql so the student tables exist.</p> : null}
             <AssessmentSetup
-              kind={kind}
-              teacherId={user.id}
+              userId={user.id}
+              isAdmin={isAdmin}
               students={students}
-              busy={false}
+              initial={setupInitial}
               onStudentAdded={(student) => setStudents((prev) => [...prev, student].sort((a, b) => a.name.localeCompare(b.name)))}
-              onStart={startAssessment}
+              onContinue={startEvaluation}
+            />
+          </>
+        );
+
+      case "evaluate":
+        return (
+          <>
+            <div>
+              <h3>Evaluate the child according to the current syllabus.</h3>
+              <p className="cell-muted assess-student-line">{studentLine}</p>
+              <p className="cell-muted">For each topic, choose how the child is doing from what you have seen in class. This shapes the paper and the areas of improvement.</p>
+            </div>
+            <SkillEvaluation
+              items={items}
+              ratings={ratings}
+              onRate={rate}
+              onBack={() => setStage("setup")}
+              onContinue={generatePaper}
+              continueLabel={`Create the ${ASSESSMENT_LENGTH}-question assessment`}
             />
           </>
         );
 
       case "generating":
         return error
-          ? errorCard(() => startAssessment(config), { label: "Back", action: () => setStage("setup") })
-          : loadingCard(`Writing a ${ASSESSMENT_LENGTH}-question paper for ${config.className} ${config.subject}…`, "This usually takes 20–40 seconds.");
+          ? errorCard(generatePaper, { label: "Back", action: () => setStage("evaluate") })
+          : loadingCard(`Writing a ${ASSESSMENT_LENGTH}-question paper on ${config.period.label} ${config.subject}…`, "This usually takes 20–40 seconds.");
 
       case "taking":
         return (
           <>
-            <h3>{kind === "end_term" ? "Evaluate the child on the end-term syllabus." : "Evaluate the child according to the current syllabus."}</h3>
-            <p className="cell-muted assess-student-line">{studentLine} · {paper.title}</p>
+            <div>
+              <h3>Assessment paper</h3>
+              <p className="cell-muted assess-student-line">{studentLine} · {paper.title}</p>
+            </div>
             <QuestionPlayer questions={paper.questions} answers={answers} onAnswer={setAnswer} onSubmit={submitAssessment} />
           </>
         );
@@ -454,17 +478,37 @@ const Assessment = () => {
       case "results":
         return (
           <>
-            <h3>{paper?.title || "Results"}</h3>
-            <p className="cell-muted assess-student-line">{studentLine}</p>
+            <div>
+              <h3>{paper?.title || "Results"}</h3>
+              <p className="cell-muted assess-student-line">{studentLine}</p>
+            </div>
             {saveWarning ? <p className="inline-error"><AlertTriangle size={14} /> {saveWarning}</p> : null}
-            {record.analysisFailed ? <p className="cell-muted">The AI diagnosis was unavailable, so the notes below are basic. The score and weak skills are unaffected.</p> : null}
-            <AssessmentResults record={record} onDownload={() => download(record)} downloading={downloading}>
+            {record.analysisFailed ? <p className="cell-muted">The AI diagnosis was unavailable, so the notes below are basic. The score and the topics to practise are unaffected.</p> : null}
+            <AssessmentResults
+              record={record}
+              onOpenReport={() => setStage("report")}
+              onDownload={() => download(record)}
+              downloading={downloading}
+            >
               {renderResultsNextStep()}
             </AssessmentResults>
             <div className="assess-footer-actions">
               <button type="button" className="secondary-btn" onClick={resetAll}><RotateCcw size={16} /> New assessment</button>
-              <Link to="/students" className="secondary-btn"><BarChart3 size={16} /> Student progress</Link>
+              <Link to="/students" className="secondary-btn"><BarChart3 size={16} /> Student details</Link>
             </div>
+          </>
+        );
+
+      case "report":
+        return (
+          <>
+            {saveWarning ? <p className="inline-error"><AlertTriangle size={14} /> {saveWarning}</p> : null}
+            <ReportView
+              assessment={record}
+              student={config.student}
+              onBack={() => setStage("results")}
+              onRemarksSaved={(text) => setRecord((prev) => ({ ...prev, teacherRemarks: text }))}
+            />
           </>
         );
 
@@ -487,8 +531,10 @@ const Assessment = () => {
       case "practice-taking":
         return (
           <>
-            <h3>Practice test: {practice.weakArea.skill}</h3>
-            <p className="cell-muted assess-student-line">{studentLine} · {PRACTICE_LENGTH} new questions</p>
+            <div>
+              <h3>Practice test: {practice.weakArea.skill}</h3>
+              <p className="cell-muted assess-student-line">{studentLine} · {PRACTICE_LENGTH} new questions</p>
+            </div>
             <QuestionPlayer
               questions={practice.paper.questions}
               answers={practice.answers}
@@ -507,8 +553,10 @@ const Assessment = () => {
       case "practice-results":
         return (
           <>
-            <h3>Practice result: {practice.weakArea.skill}</h3>
-            <p className="cell-muted assess-student-line">{studentLine}</p>
+            <div>
+              <h3>Practice result: {practice.weakArea.skill}</h3>
+              <p className="cell-muted assess-student-line">{studentLine}</p>
+            </div>
             {saveWarning ? <p className="inline-error"><AlertTriangle size={14} /> {saveWarning}</p> : null}
             {renderPracticeResults()}
           </>
@@ -523,16 +571,16 @@ const Assessment = () => {
     <div className="app-shell">
       <Sidebar />
       <main className="main-panel">
-        <Navbar title="Skill Assessment" />
+        <Navbar title="Child Assessment" />
         <div className="content-area">
           <section className="assess-hero">
-            <p className="eyebrow">Student assessment</p>
-            <h1>Assess &amp; Manage Current Academic Skills of the Child</h1>
+            <p className="eyebrow">Child assessment</p>
+            <h1>Is my child&apos;s knowledge as expected?</h1>
           </section>
-          <div className="panel-card assess-card">
+          <div className={`panel-card assess-card ${stage === "report" ? "assess-card-wide" : ""}`}>
             {pdfError ? <p className="inline-error"><AlertTriangle size={14} /> {pdfError}</p> : null}
             {downloading ? <p className="cell-muted"><Download size={14} /> Preparing the PDF…</p> : null}
-            {renderStage()}
+            <div key={stage} className="assess-stage">{renderStage()}</div>
           </div>
         </div>
       </main>

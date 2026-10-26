@@ -6,30 +6,10 @@ import { generateResource } from "../Services/aiService";
 import { describeGeminiError } from "../Services/geminiService";
 import { recordHistory, saveContent, removeSavedContent } from "../Services/contentStore";
 import { getResourcePalette } from "../Services/resourcePalette";
-
-const classOptions = ["PG", "Nursery", "LKG", "UKG", ...Array.from({ length: 12 }, (_, index) => `Class ${index + 1}`)];
-
-const subjectMap = {
-  "PG": ["English", "Math", "EVS"],
-  "Nursery": ["English", "Math", "EVS"],
-  "LKG": ["English", "Math", "EVS"],
-  "UKG": ["English", "Math", "EVS"],
-  "Class 1": ["English", "Math", "EVS"],
-  "Class 2": ["English", "Math", "EVS"],
-  "Class 3": ["English", "Math", "Science"],
-  "Class 4": ["English", "Math", "Science"],
-  "Class 5": ["English", "Math", "Science"],
-  "Class 6": ["English", "Math", "Science", "Social Studies"],
-  "Class 7": ["English", "Math", "Science", "Social Studies"],
-  "Class 8": ["English", "Math", "Science", "Social Studies"],
-  "Class 9": ["English", "Math", "Science", "History"],
-  "Class 10": ["English", "Math", "Science", "History"],
-  "Class 11": ["Physics", "Chemistry", "Biology", "Math"],
-  "Class 12": ["Physics", "Chemistry", "Biology", "Math", "Computer Science"]
-};
+import { classOptions, subjectMap } from "../Services/curriculum";
 
 const LessonGenerator = () => {
-  const [formData, setFormData] = useState({ topic: "The Water Cycle", className: "Class 5", subject: "Science", duration: "45 mins", objective: "Explain each stage clearly" });
+  const [formData, setFormData] = useState({ topic: "Uses of Water", className: "Class 3", subject: "Science", duration: "45 mins", objective: "Explain each stage clearly" });
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [entry, setEntry] = useState(null);

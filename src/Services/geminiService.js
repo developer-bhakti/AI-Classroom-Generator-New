@@ -1,8 +1,23 @@
+import { ACADEMIC_MONTHS } from "./curriculum";
+import { QUESTION_TYPES, SKILL_AREAS } from "./assessmentGrading";
+
 const DEFAULT_MODEL = "gemini-flash-latest";
 // Image models are not on the Gemini free tier — this needs a billing-enabled key.
 // gemini-2.5-flash-image is the cheaper fallback if 3.1 is unavailable.
 const DEFAULT_IMAGE_MODEL = "gemini-3.1-flash-image";
 const REQUEST_TIMEOUT_MS = 30000;
+
+// When the configured text model stops answering (overloaded, hung, retired or out of quota) text
+// requests move on to these, in order. Without this the whole app stops the moment one model does.
+const FALLBACK_MODELS = ["gemini-flash-lite-latest"];
+// A model that just failed over goes to the back of the line for this long, so a single request pays
+// for the wait instead of every request.
+const MODEL_COOLDOWN_MS = 10 * 60 * 1000;
+// With a fallback available, don't sit on a silent model for the whole timeout budget: a quick request
+// (a worksheet, a tutor reply) that has not started answering in 20s is not going to, while a big job
+// (a 20-question paper) is allowed 40s because a healthy model really can take that long.
+const QUICK_PATIENCE_MS = 20000;
+const PRIMARY_PATIENCE_MS = 40000;
 // Image generation is a lot slower than a JSON completion, so it gets its own budget.
 const IMAGE_REQUEST_TIMEOUT_MS = 90000;
 
@@ -13,6 +28,7 @@ export class GeminiNetworkError extends Error {}
 export class GeminiResponseError extends Error {}
 
 export const describeGeminiError = (err) => {
+  if (err instanceof GeminiNetworkError && err.timedOut) return "Gemini is taking too long to answer right now. Try again in a moment.";
   if (err instanceof GeminiConfigError) return err.message;
   if (err instanceof GeminiAuthError) return "Your Gemini API key was rejected. Check VITE_GEMINI_API_KEY in your .env file, then restart the dev server.";
   if (err instanceof GeminiRateLimitError) {
@@ -58,10 +74,11 @@ const QUIZ_SCHEMA = {
         properties: {
           question: { type: "STRING" },
           options: { type: "ARRAY", items: { type: "STRING" } },
-          correctIndex: { type: "INTEGER" }
+          correctIndex: { type: "INTEGER" },
+          explanation: { type: "STRING" }
         },
         required: ["question", "options", "correctIndex"],
-        propertyOrdering: ["question", "options", "correctIndex"]
+        propertyOrdering: ["question", "options", "correctIndex", "explanation"]
       }
     }
   },
@@ -78,10 +95,15 @@ const ASSESSMENT_SCHEMA = {
       items: {
         type: "OBJECT",
         properties: {
-          type: { type: "STRING", format: "enum", enum: ["mcq", "fill_blank", "true_false", "match", "problem_solving", "short_answer"] },
+          type: { type: "STRING", format: "enum", enum: Object.keys(QUESTION_TYPES) },
           topic: { type: "STRING" },
+          // 1-based number of the syllabus item the question tests, when the prompt numbered them.
+          topicNumber: { type: "INTEGER" },
           skill: { type: "STRING" },
+          area: { type: "STRING", format: "enum", enum: SKILL_AREAS },
           question: { type: "STRING" },
+          // One emoji (or a row of them) shown above the question: the "picture" in picture questions.
+          picture: { type: "STRING" },
           options: { type: "ARRAY", items: { type: "STRING" } },
           correctIndex: { type: "INTEGER" },
           answer: { type: "STRING" },
@@ -97,8 +119,8 @@ const ASSESSMENT_SCHEMA = {
           },
           explanation: { type: "STRING" }
         },
-        required: ["type", "topic", "skill", "question", "explanation"],
-        propertyOrdering: ["type", "topic", "skill", "question", "options", "correctIndex", "answer", "acceptedAnswers", "pairs", "explanation"]
+        required: ["type", "topic", "skill", "area", "question", "explanation"],
+        propertyOrdering: ["type", "topic", "topicNumber", "skill", "area", "question", "picture", "options", "correctIndex", "answer", "acceptedAnswers", "pairs", "explanation"]
       }
     }
   },
@@ -122,10 +144,46 @@ const ANALYSIS_SCHEMA = {
         propertyOrdering: ["skill", "diagnosis"]
       }
     },
-    recommendations: { type: "ARRAY", items: { type: "STRING" } }
+    recommendations: { type: "ARRAY", items: { type: "STRING" } },
+    // The class teacher's note to the parents (an editable draft; the teacher has the last word).
+    remarks: { type: "STRING" },
+    // What the child can do at home or in class to improve each weak skill.
+    improvementPlan: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          skill: { type: "STRING" },
+          activities: { type: "ARRAY", items: { type: "STRING" } },
+          resources: { type: "ARRAY", items: { type: "STRING" } }
+        },
+        required: ["skill", "activities", "resources"],
+        propertyOrdering: ["skill", "activities", "resources"]
+      }
+    }
   },
-  required: ["summary", "acceptedQuestions", "weakAreas", "recommendations"],
-  propertyOrdering: ["summary", "acceptedQuestions", "weakAreas", "recommendations"]
+  required: ["summary", "acceptedQuestions", "weakAreas", "recommendations", "remarks", "improvementPlan"],
+  propertyOrdering: ["summary", "acceptedQuestions", "weakAreas", "recommendations", "remarks", "improvementPlan"]
+};
+
+const SYLLABUS_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    months: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          month: { type: "STRING", format: "enum", enum: ACADEMIC_MONTHS },
+          topics: { type: "ARRAY", items: { type: "STRING" } }
+        },
+        required: ["month", "topics"],
+        propertyOrdering: ["month", "topics"]
+      }
+    }
+  },
+  required: ["months"],
+  propertyOrdering: ["months"]
 };
 
 const TUTOR_SCHEMA = {
@@ -140,9 +198,9 @@ const TUTOR_SCHEMA = {
   propertyOrdering: ["message", "practiceQuestion", "answerStatus", "understandingDemonstrated"]
 };
 
-const ASSESSMENT_SYSTEM_INSTRUCTION = "You are an experienced primary and secondary school examiner who writes fair, accurate, age-appropriate assessment papers and diagnoses exactly where a student is struggling. Every question must be answerable from the stated syllabus and every answer key must be correct. Always respond with a single JSON object matching the provided response schema exactly. Do not include markdown formatting, code fences, or commentary outside the JSON.";
+const ASSESSMENT_SYSTEM_INSTRUCTION = "You are an experienced early-years and school educator who writes fair, accurate, age-appropriate assessment papers and diagnoses exactly where a child is struggling. Every question must be answerable from the stated syllabus and every answer key must be correct. Always respond with a single JSON object matching the provided response schema exactly. Do not include markdown formatting, code fences, or commentary outside the JSON.";
 
-const TUTOR_SYSTEM_INSTRUCTION = "You are a warm, patient one-to-one AI teacher helping a school child master a single skill they found difficult. Use simple, friendly, age-appropriate language and short sentences. Teach one small step at a time, never reteach other topics, and never reveal a practice answer before the child has tried it. Always respond with a single JSON object matching the provided response schema exactly. Do not include markdown formatting, code fences, or commentary outside the JSON.";
+const TUTOR_SYSTEM_INSTRUCTION = "You are a warm, patient one-to-one AI teacher helping a school child master a single skill they found difficult. Use simple, friendly, age-appropriate language and short sentences. Teach one small step at a time, never reteach other topics, and never reveal a practice answer before the child has tried it. If the child asks you a question, answer it simply and correctly before returning to the lesson. Always respond with a single JSON object matching the provided response schema exactly. Do not include markdown formatting, code fences, or commentary outside the JSON.";
 
 const SYSTEM_INSTRUCTION = "You are an expert curriculum designer creating classroom-ready teaching resources for school teachers. Always respond with a single JSON object matching the provided response schema exactly. Do not include markdown formatting, code fences, or commentary outside the JSON.";
 
@@ -197,7 +255,9 @@ const postToGemini = async ({ model, body, timeoutMs }) => {
     });
   } catch (err) {
     if (err.name === "AbortError") {
-      throw new GeminiNetworkError("The request to Gemini timed out. Try again.");
+      const timeout = new GeminiNetworkError("The request to Gemini timed out. Try again.");
+      timeout.timedOut = true;
+      throw timeout;
     }
     throw new GeminiNetworkError("Couldn't reach Gemini. Check your internet connection and try again.");
   } finally {
@@ -222,7 +282,9 @@ const postToGemini = async ({ model, body, timeoutMs }) => {
       rateLimitError.needsBilling = /limit:\s*0/.test(error?.message || "");
       throw rateLimitError;
     }
-    throw new GeminiResponseError(error?.message || `Gemini request failed (${response.status}).`);
+    const failure = new GeminiResponseError(error?.message || `Gemini request failed (${response.status}).`);
+    failure.status = response.status;
+    throw failure;
   }
 
   const data = await response.json();
@@ -239,7 +301,46 @@ const postToGemini = async ({ model, body, timeoutMs }) => {
   return candidate;
 };
 
-const requestGeminiJSON = async (prompt, schema, {
+// ---- Which model to ask ----
+
+const DEGRADED_KEY = "adiuvaret-gemini-degraded";
+let degradedInMemory = {};
+
+const readDegraded = () => {
+  try {
+    const stored = globalThis.sessionStorage?.getItem(DEGRADED_KEY);
+    return stored ? JSON.parse(stored) : degradedInMemory;
+  } catch {
+    return degradedInMemory;
+  }
+};
+
+const markDegraded = (model) => {
+  degradedInMemory = { ...readDegraded(), [model]: Date.now() + MODEL_COOLDOWN_MS };
+  try {
+    globalThis.sessionStorage?.setItem(DEGRADED_KEY, JSON.stringify(degradedInMemory));
+  } catch {
+    // private mode: the in-memory copy still covers this tab
+  }
+};
+
+/** The configured model first, then the fallbacks; any that recently failed over are tried last. */
+export const modelsToTry = () => {
+  const primary = import.meta.env.VITE_GEMINI_MODEL || DEFAULT_MODEL;
+  const chain = [primary, ...FALLBACK_MODELS.filter((model) => model !== primary)];
+  const cooling = readDegraded();
+  const isCooling = (model) => (cooling[model] || 0) > Date.now();
+  return [...chain.filter((model) => !isCooling(model)), ...chain.filter(isCooling)];
+};
+
+// Problems with the model, not with the request: worth asking another model. A rejected key, a blocked
+// prompt or a malformed reply would fail the same way everywhere.
+const shouldFailOver = (err) =>
+  err instanceof GeminiNetworkError
+  || err instanceof GeminiRateLimitError
+  || (err instanceof GeminiResponseError && (err.status >= 500 || err.status === 404));
+
+const requestFromModel = async (model, prompt, schema, {
   systemInstruction = SYSTEM_INSTRUCTION,
   // Multi-turn callers pass the whole conversation; everyone else just sends one prompt.
   contents = [{ role: "user", parts: [{ text: prompt }] }],
@@ -247,8 +348,6 @@ const requestGeminiJSON = async (prompt, schema, {
   maxOutputTokens = 4096,
   timeoutMs = REQUEST_TIMEOUT_MS
 } = {}) => {
-  const model = import.meta.env.VITE_GEMINI_MODEL || DEFAULT_MODEL;
-
   const candidate = await postToGemini({
     model,
     timeoutMs,
@@ -278,6 +377,26 @@ const requestGeminiJSON = async (prompt, schema, {
   } catch {
     throw new GeminiResponseError("Gemini returned an unexpected format. Try again.");
   }
+};
+
+const requestGeminiJSON = async (prompt, schema, options = {}) => {
+  const models = modelsToTry();
+  const budget = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
+  let lastError;
+
+  for (let index = 0; index < models.length; index += 1) {
+    const hasNext = index < models.length - 1;
+    try {
+      const patience = budget > REQUEST_TIMEOUT_MS ? PRIMARY_PATIENCE_MS : QUICK_PATIENCE_MS;
+      return await requestFromModel(models[index], prompt, schema, { ...options, timeoutMs: hasNext ? Math.min(budget, patience) : budget });
+    } catch (err) {
+      if (!hasNext || !shouldFailOver(err)) throw err;
+      lastError = err;
+      markDegraded(models[index]);
+      console.warn(`Gemini model "${models[index]}" didn't answer (${err.message}); trying "${models[index + 1]}" instead.`);
+    }
+  }
+  throw lastError;
 };
 
 export const generateStructuredContent = async (prompt) => {
@@ -344,7 +463,12 @@ export const generateQuizContent = async (prompt) => {
   return {
     title: parsed.title,
     summary: parsed.summary,
-    questions: parsed.questions.map((q) => ({ question: q.question, options: q.options, correctIndex: q.correctIndex }))
+    questions: parsed.questions.map((q) => ({
+      question: q.question,
+      options: q.options,
+      correctIndex: q.correctIndex,
+      explanation: typeof q.explanation === "string" ? q.explanation.trim() : ""
+    }))
   };
 };
 
@@ -385,7 +509,10 @@ export const analyzeAssessmentContent = async (prompt) => {
     && typeof parsed.summary === "string"
     && Array.isArray(parsed.acceptedQuestions) && parsed.acceptedQuestions.every(Number.isInteger)
     && Array.isArray(parsed.weakAreas) && parsed.weakAreas.every((area) => isPlainObject(area) && typeof area.skill === "string" && typeof area.diagnosis === "string")
-    && isStringArray(parsed.recommendations);
+    && isStringArray(parsed.recommendations)
+    && typeof parsed.remarks === "string"
+    && Array.isArray(parsed.improvementPlan)
+    && parsed.improvementPlan.every((item) => isPlainObject(item) && typeof item.skill === "string" && isStringArray(item.activities) && isStringArray(item.resources));
 
   if (!valid) {
     throw new GeminiResponseError("Gemini returned an unexpected format. Try again.");
@@ -395,7 +522,9 @@ export const analyzeAssessmentContent = async (prompt) => {
     summary: parsed.summary,
     acceptedQuestions: parsed.acceptedQuestions,
     weakAreas: parsed.weakAreas.map((area) => ({ skill: area.skill, diagnosis: area.diagnosis })),
-    recommendations: parsed.recommendations
+    recommendations: parsed.recommendations,
+    remarks: parsed.remarks.trim(),
+    improvementPlan: parsed.improvementPlan.map((item) => ({ skill: item.skill, activities: item.activities, resources: item.resources }))
   };
 };
 
@@ -428,4 +557,33 @@ export const generateTutorTurn = async ({ systemContext, history }) => {
     answerStatus: parsed.answerStatus,
     understandingDemonstrated: parsed.understandingDemonstrated
   };
+};
+
+// ---- Syllabus drafting ----
+
+/**
+ * A first draft of the monthly syllabus for the given months, as [{ month, topics }]. The teacher
+ * reviews and edits it before anything is saved.
+ */
+export const generateSyllabusDraft = async (prompt) => {
+  const parsed = await requestGeminiJSON(prompt, SYLLABUS_SCHEMA, {
+    systemInstruction: ASSESSMENT_SYSTEM_INSTRUCTION,
+    maxOutputTokens: 8192,
+    timeoutMs: 60000,
+    temperature: 0.6
+  });
+
+  if (!isPlainObject(parsed) || !Array.isArray(parsed.months)) {
+    throw new GeminiResponseError("Gemini returned an unexpected format. Try again.");
+  }
+
+  const months = parsed.months
+    .filter((entry) => isPlainObject(entry) && ACADEMIC_MONTHS.includes(entry.month) && isStringArray(entry.topics))
+    .map((entry) => ({ month: entry.month, topics: entry.topics.map((topic) => topic.trim()).filter(Boolean) }))
+    .filter((entry) => entry.topics.length > 0);
+
+  if (months.length === 0) {
+    throw new GeminiResponseError("Gemini didn't return any topics. Try again.");
+  }
+  return months;
 };
