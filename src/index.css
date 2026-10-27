@@ -100,9 +100,13 @@ textarea:focus {
   border-color: #4b7be5;
 }
 
+/* The shell is exactly one screen tall and never scrolls itself: the sidebar stays put and the main
+   panel scrolls on its own. Each page renders its own shell, so a new page also starts at the top. */
 .app-shell {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
 }
 
 .sidebar {
@@ -113,6 +117,11 @@ textarea:focus {
   padding: 24px 18px;
   box-shadow: 12px 0 30px rgba(16, 33, 61, 0.16);
   transition: transform 0.3s ease;
+  /* Only if the menu is taller than the window does the sidebar scroll (inside itself), so Logout stays reachable. */
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
 }
 
 .sidebar-close-btn {
@@ -185,6 +194,7 @@ textarea:focus {
   display: flex;
   align-items: center;
   gap: 10px;
+  white-space: nowrap; /* "Password Management" is a fraction of a pixel too wide and used to wrap */
   padding: 12px 14px;
   border-radius: 12px;
   color: #e8f1ff;
@@ -208,6 +218,10 @@ textarea:focus {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .topbar {
@@ -552,6 +566,10 @@ textarea:focus {
 .settings-card-header p {
   color: var(--muted);
   margin-top: 4px;
+}
+
+.settings-card-header > svg {
+  flex-shrink: 0;
 }
 
 .settings-info-row {
@@ -5125,5 +5143,205 @@ textarea:focus {
 }
 
 .quiz-result-actions {
+  display: flex;
   flex-wrap: wrap;
+  gap: 10px;
+}
+
+.quiz-result-actions .primary-btn {
+  flex: 1 1 100%;
+  justify-content: center;
+}
+
+/* ---- Password Management ---- */
+
+.settings-card .password-rules {
+  list-style: none;
+  display: grid;
+  gap: 6px;
+  margin: 0 0 6px;
+  padding: 0;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.password-rules li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.password-rules li svg {
+  flex-shrink: 0;
+}
+
+.password-rules li.met {
+  color: var(--assess-good);
+  font-weight: 600;
+}
+
+/* ---- Exam teacher answer key (kept apart from the paper) ---- */
+
+.answer-key {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px dashed var(--border);
+  background: var(--surface-soft);
+}
+
+.answer-key summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--fg);
+}
+
+.answer-key summary small {
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.answer-key[open] summary {
+  margin-bottom: 8px;
+}
+
+/* ---- Admin: user id and set-password ---- */
+
+.user-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+  word-break: break-all;
+  color: var(--fg);
+}
+
+.admin-set-password {
+  margin-top: 14px;
+}
+
+/* ---- Admin: row actions (own class: .row-actions already means something on the Students page) ---- */
+
+.user-row-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0;
+  white-space: nowrap;
+}
+
+.user-row-actions .text-btn {
+  padding: 6px 8px;
+}
+
+/* ---- Admin: password details ---- */
+
+.password-details {
+  display: grid;
+  gap: 8px;
+  margin: 6px 0 10px;
+}
+
+.password-details > div {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.8fr) 1.6fr;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.password-details dt {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.password-details dd {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: var(--fg);
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.password-mask {
+  letter-spacing: 0.12em;
+}
+
+/* ---- Admin: the simple Edit User window ---- */
+
+.text-btn.danger-text {
+  color: var(--assess-bad);
+}
+
+.text-btn.danger-text:hover {
+  background: var(--assess-bad-bg);
+  color: var(--assess-bad);
+}
+
+.text-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.edit-password-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: -4px 0 2px;
+}
+
+.edit-user-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.edit-user-actions .secondary-btn,
+.edit-user-actions .primary-btn {
+  justify-content: center;
+}
+
+.edit-user-more {
+  margin-top: 10px;
+  font-size: 0.88rem;
+}
+
+/* ---- Admin: a password just set, shown once ---- */
+
+.password-once {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px dashed var(--assess-good);
+  background: var(--assess-good-bg);
+}
+
+.password-once p {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--assess-good);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.password-once-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.password-once-row code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--fg);
+  word-break: break-all;
 }

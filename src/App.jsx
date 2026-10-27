@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
 
 import Dashboard from "./Pages/Dashboard";
 import Login from "./Pages/Login";
@@ -13,6 +13,7 @@ import ExamPaper from "./Pages/ExamPaper";
 import SavedContent from "./Pages/SavedContent";
 import History from "./Pages/History";
 import Profile from "./Pages/Profile";
+import Password from "./Pages/Password";
 import Subscription from "./Pages/Subscription";
 import Admin from "./Pages/Admin";
 import Assessment from "./Pages/Assessment";
@@ -21,6 +22,21 @@ import Syllabus from "./Pages/Syllabus";
 import ProtectedRoute from "./Components/ProtectedRoute";
 import AdminRoute from "./Components/AdminRoute";
 import SubscriptionNag from "./Components/SubscriptionNag";
+import { useAuth } from "./context/useAuth";
+
+// Someone who opened a password-reset link is signed in but has no password to give, so wherever the
+// link landed (the login page would otherwise forward them to the dashboard), send them to set a new one.
+const RecoveryRedirect = () => {
+  const { passwordRecovery, session, loading } = useAuth();
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && session && passwordRecovery && pathname !== "/password") navigate("/password", { replace: true });
+  }, [loading, session, passwordRecovery, pathname, navigate]);
+
+  return null;
+};
 
 function App() {
   const [theme, setTheme] = useState("light");
@@ -41,6 +57,7 @@ function App() {
 
   return (
     <>
+      <RecoveryRedirect />
       <SubscriptionNag />
       <Routes>
       <Route path="/" element={<Login />} />
@@ -147,6 +164,14 @@ function App() {
         element={
           <ProtectedRoute>
             <Profile />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/password"
+        element={
+          <ProtectedRoute>
+            <Password />
           </ProtectedRoute>
         }
       />

@@ -12,7 +12,12 @@ export const ACTIVITY_LABELS = {
   subscription_paused: "Subscription paused by admin",
   subscription_resumed: "Subscription resumed by admin",
   subscription_cancelled: "Subscription cancelled by admin",
-  subscription_deleted: "Subscription deleted by admin"
+  subscription_deleted: "Subscription deleted by admin",
+  password_changed: "Changed their password",
+  password_reset_sent: "Password reset link sent by admin",
+  password_set_by_admin: "Password set by admin",
+  user_edited: "Account details edited by admin",
+  user_deleted: "Deleted a user account"
 };
 
 // Fire-and-forget: logging must never block or fail the action it describes.

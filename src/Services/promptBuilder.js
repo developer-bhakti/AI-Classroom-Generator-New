@@ -102,10 +102,15 @@ export const buildExamPrompt = ({ className, subject, topic, duration, totalMark
   return `Create a polished exam paper for ${className || "the class"} on ${subject || "the subject"}: "${topic}".
 Total marks: ${totalMarks || "50"}. Time limit: ${duration || "60 mins"}. Difficulty: ${difficulty || "Medium"}.
 ${audienceNote(className)}
-Structure the response as JSON with a "title", a one-sentence "summary", and a "sections" array containing exactly these sections in order:
+Structure the response as JSON with a "title", a one-sentence "summary", a "sections" array and an "answerKey" array.
+
+"sections" is the STUDENT'S question paper. It must contain exactly these two sections, in order:
 1. "Section A" — 5 shorter-answer questions using realistic classroom scenarios.
 2. "Section B" — 5 application/longer-answer questions that require more reasoning.
-3. "Answer Guide" — brief marking hints or sample answers for the teacher, not full solutions.
+Write each question as one numbered item with its marks, for example "1. ... (2 marks)". If a question is multiple choice, put its options (A, B, C, D) inside the same item. The marks of all ten questions must add up to ${totalMarks || "50"}.
+The student's paper must NEVER contain answers, hints, worked solutions, explanations, marking schemes or an "Answer Guide" - not at the end and not inside a question. It holds questions and options only.
+
+"answerKey" is for the TEACHER ONLY and is printed separately from the paper. It must contain exactly two sections, "Section A answers" and "Section B answers", each listing the answers in question order, for example "1. 12 (2 marks)", with a brief marking hint for the longer questions. Do not repeat the questions.
 
 Teacher's instructions to include on the paper: ${instructions || "none"}.
 

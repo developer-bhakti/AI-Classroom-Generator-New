@@ -2,6 +2,7 @@ import React, { useMemo, useState, useSyncExternalStore } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../Components/Navbar";
 import Sidebar from "../Components/Sidebar";
+import TeacherAnswerKey from "../Components/TeacherAnswerKey";
 import {
   Search,
   Bookmark,
@@ -184,6 +185,7 @@ const History = () => {
                 </div>
               ))}
               {preview.note ? <p className="note">{preview.note}</p> : null}
+              <TeacherAnswerKey answerKey={preview.answerKey} />
             </div>
           </div>
         </div>

@@ -5,6 +5,11 @@ const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const isSupabaseConfigured = Boolean(url && anonKey);
 
+// A password-reset email link comes back as #access_token=...&type=recovery. supabase-js turns that hash
+// into a session and strips it, so note it here, before the client is created, for the auth context.
+export const arrivedViaRecoveryLink =
+  typeof window !== "undefined" && /[#&?]type=recovery(?:&|$)/.test(`${window.location.hash}${window.location.search}`);
+
 export const SUPABASE_SETUP_MESSAGE =
   "Supabase isn't configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your .env file, then restart the dev server.";
 

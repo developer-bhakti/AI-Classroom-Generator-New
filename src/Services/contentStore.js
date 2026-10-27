@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from "./supabaseClient";
 import { logActivity } from "./activityLog";
+import { splitExamSections } from "./examPaper";
 
 const LANGUAGE_KEY = "adiuvaret-language";
 const FETCH_LIMIT = 200;
@@ -38,20 +39,27 @@ const rebuildSnapshot = (ready = snapshot.ready) => {
   listeners.forEach((listener) => listener());
 };
 
-const fromRow = (row) => ({
-  id: row.id,
-  type: row.type,
-  title: row.title,
-  summary: row.summary || "",
-  note: row.note || "",
-  sections: row.sections || [],
-  questions: row.questions || undefined,
-  className: row.class_name || "",
-  subject: row.subject || "",
-  isSaved: row.is_saved,
-  savedAt: row.saved_at,
-  createdAt: row.created_at
-});
+const fromRow = (row) => {
+  // An exam's `sections` is the student's paper. Papers saved before answer keys were kept apart have an
+  // "Answer Guide" section in there; it is moved into the teacher-only answerKey rather than shown.
+  const exam = row.type === "exam" ? splitExamSections(row.sections || []) : null;
+
+  return {
+    id: row.id,
+    type: row.type,
+    title: row.title,
+    summary: row.summary || "",
+    note: row.note || "",
+    sections: exam ? exam.paperSections : row.sections || [],
+    answerKey: exam ? [...(Array.isArray(row.answer_key) ? row.answer_key : []), ...exam.answerKey] : undefined,
+    questions: row.questions || undefined,
+    className: row.class_name || "",
+    subject: row.subject || "",
+    isSaved: row.is_saved,
+    savedAt: row.saved_at,
+    createdAt: row.created_at
+  };
+};
 
 export const subscribeContentStore = (listener) => {
   listeners.add(listener);
@@ -102,6 +110,7 @@ export const recordHistory = async ({ type, formData, result }) => {
     summary: result.summary || "",
     note: result.note || "",
     sections: result.sections || [],
+    answerKey: result.answerKey,
     questions: result.questions,
     className: formData?.className || "",
     subject: formData?.subject || "",
@@ -115,7 +124,7 @@ export const recordHistory = async ({ type, formData, result }) => {
 
   if (!isSupabaseConfigured || !currentUserId) return entry;
 
-  const { error } = await supabase.from("generated_content").insert({
+  const row = {
     id: entry.id,
     user_id: currentUserId,
     type: entry.type,
@@ -128,7 +137,19 @@ export const recordHistory = async ({ type, formData, result }) => {
     subject: entry.subject,
     is_saved: false,
     created_at: entry.createdAt
-  });
+  };
+  if (entry.answerKey?.length) row.answer_key = entry.answerKey;
+
+  let { error } = await supabase.from("generated_content").insert(row);
+
+  // The answer_key column comes from the latest schema.sql. Until that has been run the paper is still
+  // saved (just without its key) instead of the whole history entry being lost.
+  if (error && row.answer_key && /answer_key/.test(error.message || "")) {
+    console.warn("Run the latest supabase/schema.sql to keep exam answer keys. Saving the paper without its key for now.");
+    const withoutKey = { ...row };
+    delete withoutKey.answer_key;
+    ({ error } = await supabase.from("generated_content").insert(withoutKey));
+  }
 
   // A persistence failure must not lose the generated resource the user is looking at.
   if (error) {

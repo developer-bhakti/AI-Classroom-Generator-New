@@ -1,4 +1,4 @@
-import { getPerformanceLevel, shuffleChoices, toPercentage } from "./assessmentGrading";
+import { getPerformanceLevel, shuffleChoices } from "./assessmentGrading";
 
 // The quiz player works in rounds. Round 1 is the whole quiz; after it the student is shown what they
 // got wrong and can take just those questions again, round after round, until every one is right.
@@ -22,7 +22,8 @@ export const buildRound = (questions, sourceIndexes = questions.map((_, index) =
 export const scoreRound = (round, answers) => {
   const results = round.map((item, index) => ({ ...item, chosenIndex: answers[index], isCorrect: answers[index] === item.correctIndex }));
   const right = results.filter((item) => item.isCorrect);
-  const percentage = toPercentage(right.length, round.length);
+  // Whole numbers, and the level is read from the same number the student sees (5 of 8 is 63%, Average).
+  const percentage = round.length ? Math.round((right.length / round.length) * 100) : 0;
   return {
     total: round.length,
     correct: right.length,

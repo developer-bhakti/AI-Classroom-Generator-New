@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../Components/Navbar";
 import Sidebar from "../Components/Sidebar";
-import { Eye, EyeOff, Check, AlertTriangle } from "lucide-react";
+import { Check, AlertTriangle } from "lucide-react";
 import { useAuth } from "../context/useAuth";
 import { supabase } from "../Services/supabaseClient";
 import { describeAuthError } from "../Services/authErrors";
@@ -13,12 +13,6 @@ const Profile = () => {
   const [savingName, setSavingName] = useState(false);
   const [nameSaved, setNameSaved] = useState(false);
   const [nameError, setNameError] = useState(null);
-
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [savingPassword, setSavingPassword] = useState(false);
-  const [passwordMessage, setPasswordMessage] = useState(null);
 
   useEffect(() => {
     if (profile?.full_name) setDraftName(profile.full_name);
@@ -49,33 +43,6 @@ const Profile = () => {
     await refreshProfile();
     setNameSaved(true);
     setTimeout(() => setNameSaved(false), 2000);
-  };
-
-  const handleChangePassword = async (e) => {
-    e.preventDefault();
-    setPasswordMessage(null);
-
-    if (newPassword.length < 6) {
-      setPasswordMessage({ type: "error", text: "Your new password must be at least 6 characters." });
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setPasswordMessage({ type: "error", text: "Passwords do not match." });
-      return;
-    }
-
-    setSavingPassword(true);
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    setSavingPassword(false);
-
-    if (error) {
-      setPasswordMessage({ type: "error", text: describeAuthError(error) });
-      return;
-    }
-
-    setNewPassword("");
-    setConfirmPassword("");
-    setPasswordMessage({ type: "success", text: "Your password has been updated." });
   };
 
   return (
@@ -135,49 +102,11 @@ const Profile = () => {
             <div className="panel-card settings-card">
               <div className="settings-card-header">
                 <div>
-                  <h3>Change password</h3>
-                  <p>Pick something at least 6 characters long.</p>
+                  <h3>Password</h3>
+                  <p>Change your password, or find out how to reset a forgotten one, on the Password Management page.</p>
                 </div>
               </div>
-
-              <form onSubmit={handleChangePassword}>
-                <div className="field-row">
-                  <label>New password</label>
-                  <div className="password-field">
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="New password"
-                    />
-                    <button type="button" className="password-toggle" onClick={() => setShowPassword((prev) => !prev)}>
-                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="field-row">
-                  <label>Confirm new password</label>
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Confirm new password"
-                  />
-                </div>
-
-                {passwordMessage ? (
-                  <p className={passwordMessage.type === "error" ? "inline-error" : "inline-success"}>
-                    {passwordMessage.type === "error" ? <AlertTriangle size={14} /> : <Check size={14} />} {passwordMessage.text}
-                  </p>
-                ) : null}
-
-                <div className="form-actions">
-                  <button type="submit" className="primary-btn" disabled={savingPassword || !newPassword}>
-                    {savingPassword ? "Updating..." : "Update password"}
-                  </button>
-                </div>
-              </form>
+              <Link to="/password" className="secondary-btn full">Open Password Management</Link>
             </div>
           </div>
         </div>

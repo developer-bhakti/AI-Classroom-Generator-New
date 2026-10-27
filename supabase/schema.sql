@@ -89,6 +89,9 @@ create table if not exists public.generated_content (
   created_at timestamptz not null default now()
 );
 
+-- An exam's answer key, kept apart from `sections` (the student's paper) so nothing that lists a paper can show it.
+alter table public.generated_content add column if not exists answer_key jsonb;
+
 -- ---- Student assessment ----
 -- A teacher keeps a roster of students and runs AI-generated assessments against them.
 -- Every row is owned by the teacher (teacher_id); students have no login of their own.
@@ -193,7 +196,7 @@ create table if not exists public.teaching_sessions (
   created_at       timestamptz not null default now()
 );
 
--- ---- Syllabus ----
+------ Syllabus ----
 -- Annual syllabus -> term -> month, for one academic year, class and subject. The term follows from
 -- the month in the app, so there is one row per month, holding that month's topics / learning
 -- outcomes. An admin's row can be shared with every teacher (is_shared); anyone else's is theirs
@@ -295,11 +298,16 @@ security definer
 set search_path = public
 as $$
 begin
-  if new.role is distinct from old.role and not public.is_admin() then
-    new.role := old.role;
-  end if;
-  if new.email is distinct from old.email then
-    new.email := old.email;
+  -- Only people signed in through the app are held back. With nobody signed in (the SQL editor, or an
+  -- Edge Function using the service-role key) there is no one to escalate: that is how the first admin is
+  -- made, and how the admin "Edit user" screen changes a login email, which must stay in step with auth.users.
+  if auth.uid() is not null then
+    if new.role is distinct from old.role and not public.is_admin() then
+      new.role := old.role;
+    end if;
+    if new.email is distinct from old.email then
+      new.email := old.email;
+    end if;
   end if;
   new.updated_at := now();
   return new;

@@ -4,7 +4,7 @@ import Navbar from "../Components/Navbar";
 import Sidebar from "../Components/Sidebar";
 import {
   Search, Users, CreditCard, FileText, IndianRupee, X, AlertTriangle,
-  Pause, Play, Ban, Trash2, Check
+  Pause, Play, Ban, Trash2, Check, Pencil
 } from "lucide-react";
 import { supabase } from "../Services/supabaseClient";
 import { useAuth } from "../context/useAuth";
@@ -22,12 +22,16 @@ import {
   resumeSubscription,
   cancelSubscription,
   deleteSubscription,
+  deleteUserAccount,
   listAllTeacherRequests,
   updateTeacherRequestStatus
 } from "../Services/adminService";
 import { ACTIVITY_LABELS } from "../Services/activityLog";
 import { REQUEST_STATUS_LABELS } from "../Services/studentService";
 import { RESOURCE_TYPES } from "../Services/contentStore";
+import UserIdLine from "../Components/admin/UserIdLine";
+import { addMonths, fromDateInput, toDateInput } from "../Services/dateInputs";
+import EditUserForm from "../Components/admin/EditUserForm";
 
 const formatDate = (iso) =>
   iso ? new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "—";
@@ -35,25 +39,8 @@ const formatDate = (iso) =>
 const formatDateTime = (iso) =>
   iso ? new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "—";
 
-const toDateInput = (date) => {
-  const d = new Date(date);
-  const offset = d.getTimezoneOffset() * 60000;
-  return new Date(d.getTime() - offset).toISOString().slice(0, 10);
-};
-
-const fromDateInput = (value) => {
-  const d = new Date(`${value}T23:59:59`);
-  return d.toISOString();
-};
-
-const addMonths = (date, months) => {
-  const d = new Date(date);
-  d.setMonth(d.getMonth() + months);
-  return d;
-};
-
 const Admin = () => {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, refreshProfile } = useAuth();
   const { refresh: refreshOwnSubscription } = useSubscription();
 
   const [users, setUsers] = useState([]);
@@ -73,6 +60,8 @@ const Admin = () => {
   const [grantEndDate, setGrantEndDate] = useState("");
   const [busy, setBusy] = useState(false);
   const [actionMessage, setActionMessage] = useState(null);
+  const [editUserId, setEditUserId] = useState(null);
+  const [tableMessage, setTableMessage] = useState(null);
 
   const loadAll = useCallback(async () => {
     const [profilesRes, subsRes, paymentsRes, contentRes] = await Promise.all([
@@ -205,6 +194,33 @@ const Admin = () => {
     runAction(() => deleteSubscription(detailUser.subscription), "Subscription deleted.");
   };
 
+  // Called by the Edit window after it has saved (all of it, or part of it).
+  const handleApplied = async (result, { keepOpen = false } = {}) => {
+    const saving = editUser;
+    const nextUsers = await loadAll();
+    if (saving?.id === currentUser?.id) {
+      await Promise.all([refreshProfile(), refreshOwnSubscription()]);
+    }
+    if (!keepOpen) {
+      const now = nextUsers?.find((u) => u.id === saving?.id) || saving;
+      setEditUserId(null);
+      setTableMessage({ type: "success", text: `Saved ${result.saved.join(", ")} for ${now?.full_name || now?.email}.` });
+    }
+  };
+
+  const handleDeleteUser = async (row) => {
+    const who = row.full_name || row.email;
+    if (!window.confirm(`Delete ${who} (${row.email})?\n\nTheir account, subscription, payments, saved content, students and assessments are permanently removed. This cannot be undone.`)) return;
+    setTableMessage(null);
+    try {
+      await deleteUserAccount(row.id);
+      await loadAll();
+      setTableMessage({ type: "success", text: `${who} was deleted.` });
+    } catch (err) {
+      setTableMessage({ type: "error", text: err.message });
+    }
+  };
+
   const changeRequestStatus = async (requestId, status) => {
     const previous = teacherRequests;
     setTeacherRequests((rows) => rows.map((row) => (row.id === requestId ? { ...row, status } : row)));
@@ -216,6 +232,7 @@ const Admin = () => {
     }
   };
 
+  const editUser = users.find((u) => u.id === editUserId) || null;
   const sub = detailUser?.subscription;
 
   return (
@@ -272,6 +289,11 @@ const Admin = () => {
                 </div>
               </div>
 
+              {tableMessage ? (
+                <p className={tableMessage.type === "error" ? "inline-error" : "inline-success"} role={tableMessage.type === "error" ? "alert" : "status"}>
+                  {tableMessage.type === "error" ? <AlertTriangle size={14} /> : <Check size={14} />} {tableMessage.text}
+                </p>
+              ) : null}
               <div className="panel-card data-table-wrap">
                 <table className="data-table">
                   <thead>
@@ -303,7 +325,18 @@ const Admin = () => {
                         <td data-label="Expires" className="cell-muted">{formatDate(row.subscription?.end_date)}</td>
                         <td data-label="Joined" className="cell-muted">{formatDate(row.created_at)}</td>
                         <td data-label="">
-                          <button type="button" className="text-btn" onClick={() => openDetail(row)}>Manage</button>
+                          <div className="user-row-actions">
+                            <button type="button" className="text-btn" onClick={() => { setTableMessage(null); setEditUserId(row.id); }}><Pencil size={14} /> Edit</button>
+                            <button
+                              type="button"
+                              className="text-btn danger-text"
+                              disabled={row.id === currentUser?.id}
+                              title={row.id === currentUser?.id ? "You can't delete your own account" : undefined}
+                              onClick={() => handleDeleteUser(row)}
+                            >
+                              <Trash2 size={14} /> Delete
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -315,7 +348,7 @@ const Admin = () => {
               <div className="toolbar-row">
                 <h3 className="section-heading" style={{ margin: 0 }}>Online teacher requests ({teacherRequests.length})</h3>
               </div>
-              {requestsError ? <p className="inline-error"><AlertTriangle size={14} /> {requestsError}</p> : null}
+              {requestsError ? <p className="inline-error"><AlertTriangle size={14} /> {requestsError}. Run the latest supabase/schema.sql so the teacher-request table exists.</p> : null}
               <div className="panel-card data-table-wrap">
                 <table className="data-table">
                   <thead>
@@ -362,6 +395,30 @@ const Admin = () => {
         </div>
       </main>
 
+      {editUser ? createPortal(
+        <div className="profile-modal-backdrop" onClick={() => setEditUserId(null)}>
+          <div className="profile-modal content-modal" role="dialog" aria-label="Edit user" onClick={(e) => e.stopPropagation()}>
+            <div className="profile-modal-header">
+              <h3>Edit User</h3>
+              <button type="button" className="modal-close-btn" onClick={() => setEditUserId(null)}><X size={18} /></button>
+            </div>
+            <div className="profile-modal-body">
+              <UserIdLine id={editUser.id} />
+              <EditUserForm
+                key={editUser.id}
+                user={editUser}
+                plans={plans}
+                isSelf={editUser.id === currentUser?.id}
+                onApplied={handleApplied}
+                onCancel={() => setEditUserId(null)}
+                onOpenDetails={() => { const target = editUser; setEditUserId(null); openDetail(target); }}
+              />
+            </div>
+          </div>
+        </div>,
+        document.body
+      ) : null}
+
       {detailUser ? createPortal(
         <div className="profile-modal-backdrop" onClick={() => setDetailUser(null)}>
           <div className="profile-modal content-modal" onClick={(e) => e.stopPropagation()}>
@@ -371,6 +428,7 @@ const Admin = () => {
             </div>
             <div className="profile-modal-body">
               <p className="content-row-meta">{detailUser.email}</p>
+              <UserIdLine id={detailUser.id} />
 
               <div className="admin-sub-panel">
                 <div className="admin-sub-head">

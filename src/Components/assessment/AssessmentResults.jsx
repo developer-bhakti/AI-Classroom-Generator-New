@@ -111,7 +111,7 @@ const AssessmentResults = ({ record, onOpenReport, onDownload, downloading = fal
                     <li key={weak.skill}>
                       <div className="assess-weak-head">
                         <strong>{weak.skill}</strong>
-                        {weak.rating ? <span className="assess-tag">Teacher: {weak.rating}</span> : null}
+                        {weak.rating ? <span className="assess-tag">{`Teacher's rating: ${weak.rating}`}</span> : null}
                         <span className="cell-muted">{weak.total > 0 ? `${weak.correct}/${weak.total} correct` : "from your observation"}</span>
                       </div>
                       <p>{weak.diagnosis}</p>

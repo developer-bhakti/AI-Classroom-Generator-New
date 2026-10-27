@@ -2,6 +2,7 @@ import React, { useMemo, useState, useSyncExternalStore } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../Components/Navbar";
 import Sidebar from "../Components/Sidebar";
+import TeacherAnswerKey from "../Components/TeacherAnswerKey";
 import {
   Search,
   Bookmark,
@@ -151,6 +152,7 @@ const SavedContent = () => {
                 </div>
               ))}
               {preview.note ? <p className="note">{preview.note}</p> : null}
+              <TeacherAnswerKey answerKey={preview.answerKey} />
               <button
                 type="button"
                 className="secondary-btn full"

@@ -62,6 +62,32 @@ const RESULT_SCHEMA = {
   propertyOrdering: ["title", "summary", "sections"]
 };
 
+const SECTION_LIST_SCHEMA = {
+  type: "ARRAY",
+  items: {
+    type: "OBJECT",
+    properties: {
+      heading: { type: "STRING" },
+      items: { type: "ARRAY", items: { type: "STRING" } }
+    },
+    required: ["heading", "items"],
+    propertyOrdering: ["heading", "items"]
+  }
+};
+
+// Exam papers: the student's paper and the teacher's answer key come back as two separate lists.
+const EXAM_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    title: { type: "STRING" },
+    summary: { type: "STRING" },
+    sections: SECTION_LIST_SCHEMA,
+    answerKey: SECTION_LIST_SCHEMA
+  },
+  required: ["title", "summary", "sections", "answerKey"],
+  propertyOrdering: ["title", "summary", "sections", "answerKey"]
+};
+
 const QUIZ_SCHEMA = {
   type: "OBJECT",
   properties: {
@@ -410,6 +436,26 @@ export const generateStructuredContent = async (prompt) => {
     title: parsed.title,
     summary: parsed.summary,
     sections: parsed.sections.map((section) => ({ heading: section.heading, items: section.items }))
+  };
+};
+
+const isSectionList = (list) =>
+  Array.isArray(list) && list.every((section) => isPlainObject(section) && typeof section.heading === "string" && Array.isArray(section.items) && section.items.every((item) => typeof item === "string"));
+
+/** An exam paper: `sections` is the student's paper, `answerKey` the teacher's separate key (empty if the model gave none). */
+export const generateExamContent = async (prompt) => {
+  const parsed = await requestGeminiJSON(prompt, EXAM_SCHEMA);
+
+  if (!validateShape(parsed)) {
+    throw new GeminiResponseError("Gemini returned an unexpected format. Try again.");
+  }
+
+  const toSections = (list) => list.map((section) => ({ heading: section.heading, items: section.items }));
+  return {
+    title: parsed.title,
+    summary: parsed.summary,
+    sections: toSections(parsed.sections),
+    answerKey: isSectionList(parsed.answerKey) ? toSections(parsed.answerKey) : []
   };
 };
 

@@ -6,7 +6,8 @@ import {
   buildActivityPrompt,
   buildExamPrompt
 } from "./promptBuilder";
-import { generateStructuredContent, generateQuizContent, generateImage } from "./geminiService";
+import { generateStructuredContent, generateQuizContent, generateExamContent, generateImage } from "./geminiService";
+import { splitExamSections } from "./examPaper";
 import { getLanguage } from "./contentStore";
 
 const formatTopic = (value) => value?.split(": ").pop()?.trim() || value || "your topic";
@@ -58,6 +59,21 @@ export const generateResource = async ({ type, formData }) => {
       summary,
       sections,
       questions,
+      note,
+      prompt
+    };
+  }
+
+  if (type === "exam") {
+    const exam = await generateExamContent(prompt);
+    // The paper must hold questions only; anything the model still labelled as answers moves to the key.
+    const split = splitExamSections(exam.sections);
+
+    return {
+      title: exam.title || `${formatTopic(formData.topic)} exam`,
+      summary: exam.summary,
+      sections: split.paperSections,
+      answerKey: [...exam.answerKey, ...split.answerKey],
       note,
       prompt
     };

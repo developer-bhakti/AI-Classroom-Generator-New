@@ -230,6 +230,22 @@ const QuizGenerator = () => {
                       {studentMessage({ scored, round })}
                     </p>
 
+                    <div className="quiz-result-actions">
+                      {scored.wrong.length > 0 ? (
+                        <>
+                          <button type="button" className="primary-btn" onClick={practiseMissed}>
+                            <RotateCcw size={16} /> Practise the {scored.wrong.length} missed question{scored.wrong.length === 1 ? "" : "s"}
+                          </button>
+                          <button type="button" className="secondary-btn" onClick={startQuiz}>Retake whole quiz</button>
+                        </>
+                      ) : (
+                        <button type="button" className="primary-btn" onClick={startQuiz}>
+                          <RotateCcw size={16} /> Take the whole quiz again
+                        </button>
+                      )}
+                      <button type="button" className="secondary-btn" onClick={backToOverview}>Back to overview</button>
+                    </div>
+
                     {history.length > 1 && (
                       <div className="quiz-rounds-trail">
                         <ol>
@@ -287,22 +303,6 @@ const QuizGenerator = () => {
                     )}
 
                     <p className="quiz-level-legend">{LEVEL_BANDS.map(describeBand).join(" · ")}</p>
-
-                    <div className="quiz-nav-row quiz-result-actions">
-                      <button type="button" className="secondary-btn" onClick={backToOverview}>Back to overview</button>
-                      {scored.wrong.length > 0 ? (
-                        <>
-                          <button type="button" className="secondary-btn" onClick={startQuiz}>Retake whole quiz</button>
-                          <button type="button" className="primary-btn" onClick={practiseMissed}>
-                            <RotateCcw size={16} /> Practise the {scored.wrong.length} missed question{scored.wrong.length === 1 ? "" : "s"}
-                          </button>
-                        </>
-                      ) : (
-                        <button type="button" className="primary-btn" onClick={startQuiz}>
-                          <RotateCcw size={16} /> Take the whole quiz again
-                        </button>
-                      )}
-                    </div>
                   </div>
                 )}
               </>

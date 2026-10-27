@@ -15,6 +15,15 @@ export const loadRazorpayScript = () =>
     document.body.appendChild(script);
   });
 
+// Supabase's own wording is what tells you what to fix, so say it instead of a bare "couldn't load".
+const describePlansProblem = (error) => {
+  const message = String(error.message || "").replace(/\.$/, "");
+  if (/jwt|token/i.test(message)) return "your sign-in has expired, so log out and log in again";
+  if (error.code === "PGRST205" || error.code === "42P01") return "the plans table is missing, so run supabase/schema.sql in the Supabase SQL editor";
+  if (/failed to fetch|network|load failed/i.test(message)) return "Supabase can't be reached, so check your connection and whether the project is paused";
+  return message || "unknown error";
+};
+
 export const getPlans = async () => {
   const { data, error } = await supabase
     .from("plans")
@@ -22,7 +31,10 @@ export const getPlans = async () => {
     .eq("is_active", true)
     .order("duration_months", { ascending: true });
 
-  if (error) throw new Error("Couldn't load the subscription plans.");
+  if (error) {
+    console.warn("Couldn't load subscription plans:", error);
+    throw new Error(`Couldn't load the subscription plans: ${describePlansProblem(error)}.`);
+  }
   return data || [];
 };
 

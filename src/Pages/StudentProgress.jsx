@@ -368,6 +368,11 @@ const StudentProgress = () => {
         <div className="panel-card">
           <h3>🎯 Areas of improvement{view.subject ? ` — ${view.subject}` : ""}</h3>
           {latest ? <p className="cell-muted">From the latest paper: {latest.month || kindLabel(latest)} · {formatDate(latest.createdAt)}</p> : null}
+          {groups.length > 0 ? (
+            <p className="cell-muted">
+              A topic is listed when the child scored under {MASTERY_THRESHOLD}% on it, or the teacher rated it Needs Improvement. The tag is the rating the teacher chose before the paper; the score comes from the child&apos;s answers, so a topic rated Excellent can still appear if the child struggled with it.
+            </p>
+          ) : null}
           {!latest ? (
             <p className="cell-muted">No full paper in this subject yet.</p>
           ) : groups.length === 0 ? (
@@ -388,7 +393,8 @@ const StudentProgress = () => {
                         <li key={weak.skill}>
                           <div className="assess-weak-head">
                             <strong>{weak.skill}</strong>
-                            {weak.rating ? <span className="assess-tag">Teacher: {weak.rating}</span> : null}
+                            {weak.rating ? <span className="assess-tag">{`Teacher's rating: ${weak.rating}`}</span> : null}
+                            <span className="cell-muted">{weak.total > 0 ? `${weak.correct}/${weak.total} correct` : "from the teacher's observation"}</span>
                           </div>
                           <p>{weak.diagnosis}</p>
                           {tips.length > 0 ? <p className="assess-try"><strong>Try at home:</strong> {tips.join(" · ")}</p> : null}

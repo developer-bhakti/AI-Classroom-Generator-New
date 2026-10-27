@@ -23,6 +23,8 @@ auto-profile trigger, and the four seed plans. It is safe to re-run.
 > are added and `assessments.completed_month` is renamed to `month`, keeping its data. Until it
 > has been run, those pages show a "run the latest schema.sql" message.
 
+> **Exam answer keys.** The current file also adds `generated_content.answer_key`, where an exam's teacher-only answer key is stored apart from the student paper. Re-run `schema.sql` to add it; until then exam papers still save, but without their key.
+
 **Edit the prices** at the bottom of `schema.sql` before running if you don't want the
 placeholder amounts (₹499 / ₹1,299 / ₹2,399 / ₹4,299). Already ran it? Change them with:
 
@@ -108,10 +110,19 @@ supabase secrets set RAZORPAY_KEY_SECRET=your_key_secret
 
 supabase functions deploy create-razorpay-order
 supabase functions deploy verify-razorpay-payment
+supabase functions deploy admin-manage-user
 ```
 
 `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` are injected
 automatically — don't set those yourself.
+
+`admin-manage-user` is what lets an admin change *another* person's account from the Admin
+Dashboard: **Edit** (login email, name, account type, a new password) and **Delete**. Supabase only
+allows those with the service-role key, so they cannot run in the browser. It needs no secrets of its
+own, refuses anyone whose `profiles.role` is not `admin`, never lets you delete yourself or the last
+admin, and never logs or returns a password. Until it is deployed, Edit's plan and end date still work
+and **Send reset link** (which needs no function) still works; saving an email, name, role or password,
+and Delete, say the service is not set up yet.
 
 No CLI? Dashboard → **Edge Functions → Deploy a new function**, paste each `index.ts`,
 and set the two secrets under **Edge Functions → Secrets**. If you deploy via the
@@ -129,10 +140,21 @@ update public.profiles set role = 'admin' where email = 'you@example.com';
 Sign out and back in. An **Admin Dashboard** entry appears in the sidebar, and logging in
 as an admin takes you straight there.
 
-From **Manage** on any user row you can give or extend a subscription (pick a plan, adjust
+From **Edit** on any user row you can change the person's login email, name, account type, plan and subscription end date, **set a new password** or **send a password reset link** (they choose their own), and see their **User ID** (saving the first four needs step 4's `admin-manage-user` function). **Delete** removes the account. For a user you can also give or extend a subscription (pick a plan, adjust
 the expiry date), pause it, resume it, cancel it, or delete it outright. Pausing records the
 moment it stopped; resuming adds that time back onto the expiry, so a pause never costs the
 user days. Admins are never paywalled themselves.
+
+## 5b. Load the Class 2 Maths syllabus (optional)
+
+[`seed-class2-math-syllabus.sql`](seed-class2-math-syllabus.sql) loads the Class 2 Maths textbook
+(NCERT *Joyful Mathematics*, 14 chapters) as the shared **School syllabus**, so every teacher sees it
+on the Syllabus page and Child Assessment builds its 20-question papers from it. Run it the same way
+as `schema.sql` (SQL Editor -> paste -> Run), **after** `schema.sql` and after step 5, because the
+rows are saved in an admin's name. It is safe to re-run: it never overwrites a month an admin has
+edited. The textbook has no month plan, so the chapters follow the book's order from April; change any
+month on the Syllabus page, or edit the file first. To add another class or subject, copy the file
+and change `'Class 2'`, `'Math'` and the topic lists.
 
 ## 6. Test a payment
 

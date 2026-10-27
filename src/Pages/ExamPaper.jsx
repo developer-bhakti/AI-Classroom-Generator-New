@@ -7,6 +7,7 @@ import { describeGeminiError } from "../Services/geminiService";
 import { recordHistory, saveContent, removeSavedContent } from "../Services/contentStore";
 import { getResourcePalette } from "../Services/resourcePalette";
 import { classOptions, subjectMap } from "../Services/curriculum";
+import TeacherAnswerKey from "../Components/TeacherAnswerKey";
 
 const ExamPaper = () => {
   const [formData, setFormData] = useState({
@@ -172,6 +173,7 @@ const ExamPaper = () => {
                     </div>
                   ))}
                   <p className="note">{generatedPaper.note}</p>
+                  <TeacherAnswerKey answerKey={generatedPaper.answerKey} />
                 </>
               ) : (
                 <div className="empty-state">
