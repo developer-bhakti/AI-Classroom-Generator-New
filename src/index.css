@@ -5345,3 +5345,187 @@ textarea:focus {
   color: var(--fg);
   word-break: break-all;
 }
+
+/* ---- Download PDF / Print ---- */
+
+.print-btn {
+  margin-top: 12px;
+}
+
+.print-hint {
+  margin-top: 6px;
+  font-size: 0.85rem;
+}
+
+/* The printed sheet. It lives in .print-root, which is hidden on screen and shown alone when printing. */
+.print-root .print-doc {
+  color: #111;
+  background: #fff;
+  font-family: "Segoe UI", "Noto Sans Devanagari", "Nirmala UI", Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.print-root .print-head {
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #111;
+}
+
+.print-root .print-brand {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #555;
+}
+
+.print-root .print-head h1 {
+  margin: 4px 0 2px;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: #111;
+}
+
+.print-root .print-meta {
+  color: #333;
+}
+
+.print-root .print-banner {
+  margin-top: 8px;
+  padding: 6px 10px;
+  border: 1.5px dashed #111;
+  font-weight: 700;
+}
+
+.print-root .print-fields {
+  display: flex;
+  align-items: flex-end;
+  gap: 18px;
+  margin-top: 14px;
+}
+
+.print-root .print-fields span {
+  display: flex;
+  flex: 1;
+  align-items: flex-end;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.print-root .print-fields i {
+  display: block;
+  flex: 1;
+  min-width: 40px;
+  height: 1em;
+  border-bottom: 1px solid #111;
+}
+
+.print-root .print-fields strong {
+  white-space: nowrap;
+}
+
+.print-root .print-instruction {
+  margin-top: 10px;
+  font-style: italic;
+}
+
+.print-root .print-summary {
+  margin-top: 8px;
+  color: #333;
+}
+
+.print-root .print-section {
+  margin-top: 14px;
+}
+
+.print-root .print-section h2 {
+  margin-bottom: 8px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid #999;
+  font-size: 15px;
+  font-weight: 700;
+  color: #111;
+  break-after: avoid;
+}
+
+.print-root .print-item {
+  margin-bottom: 8px;
+  break-inside: avoid;
+}
+
+.print-root .print-item.plain p {
+  position: relative;
+  padding-left: 14px;
+}
+
+.print-root .print-item.plain p::before {
+  content: "•";
+  position: absolute;
+  left: 2px;
+}
+
+.print-root .print-lines {
+  display: block;
+  margin-top: 4px;
+}
+
+.print-root .print-line {
+  display: block;
+  height: 22px;
+  border-bottom: 1px solid #888;
+}
+
+.print-root .print-quiz {
+  display: grid;
+  gap: 14px;
+  padding-left: 22px;
+  list-style: decimal;
+}
+
+.print-root .print-question {
+  padding-left: 4px;
+  break-inside: avoid;
+}
+
+.print-root .print-question > p {
+  font-weight: 600;
+}
+
+.print-root .print-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 18px;
+  margin-top: 6px;
+}
+
+.print-root .print-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.print-root .print-bubble {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid #111;
+  border-radius: 50%;
+}
+
+.print-root .print-foot {
+  margin-top: 18px;
+  padding-top: 6px;
+  border-top: 1px solid #bbb;
+  font-size: 10px;
+  color: #666;
+  text-align: center;
+}
+
+.print-root .print-doc-image {
+  display: block;
+  width: 100%;
+  max-height: 275mm;
+  margin: 0 auto;
+  object-fit: contain;
+}

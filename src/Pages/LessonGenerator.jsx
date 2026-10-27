@@ -7,6 +7,7 @@ import { describeGeminiError } from "../Services/geminiService";
 import { recordHistory, saveContent, removeSavedContent } from "../Services/contentStore";
 import { getResourcePalette } from "../Services/resourcePalette";
 import { classOptions, subjectMap } from "../Services/curriculum";
+import ResourcePrint from "../Components/print/ResourcePrint";
 
 const LessonGenerator = () => {
   const [formData, setFormData] = useState({ topic: "Uses of Water", className: "Class 3", subject: "Science", duration: "45 mins", objective: "Explain each stage clearly" });
@@ -116,6 +117,7 @@ const LessonGenerator = () => {
                     </ul>
                   </div>
                 ))}
+                <ResourcePrint kind="lesson" resource={result} meta={formData} hint />
                 <p className="note">{result.note}</p>
               </>
             ) : <p>Build a structure for your next class with one click.</p>}

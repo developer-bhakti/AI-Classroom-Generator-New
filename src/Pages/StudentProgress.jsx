@@ -70,7 +70,7 @@ const StudentProgress = () => {
 
   useEffect(() => {
     let active = true;
-    listStudents()
+    listStudents(user?.id)
       .then((rows) => {
         if (!active) return;
         setStudents(rows);
@@ -79,7 +79,7 @@ const StudentProgress = () => {
       .catch((err) => { if (active) setError(`${err.message}. Run the latest supabase/schema.sql so the student tables exist.`); })
       .finally(() => { if (active) setLoadingStudents(false); });
     return () => { active = false; };
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     if (!selectedId) return undefined;

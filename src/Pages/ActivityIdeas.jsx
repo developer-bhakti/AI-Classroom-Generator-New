@@ -7,6 +7,7 @@ import { describeGeminiError } from "../Services/geminiService";
 import { recordHistory, saveContent, removeSavedContent } from "../Services/contentStore";
 import { getResourcePalette } from "../Services/resourcePalette";
 import { classOptions, subjectMap } from "../Services/curriculum";
+import ResourcePrint from "../Components/print/ResourcePrint";
 
 const ActivityIdeas = () => {
   const [formData, setFormData] = useState({ topic: "Community Helpers", className: "Class 2", subject: "English", duration: "30 mins", objective: "Encourage collaboration" });
@@ -116,6 +117,7 @@ const ActivityIdeas = () => {
                     </ul>
                   </div>
                 ))}
+                <ResourcePrint kind="activity" resource={result} meta={formData} hint />
                 <p className="note">{result.note}</p>
               </>
             ) : <p>Bring energy into your classroom with exciting activities.</p>}

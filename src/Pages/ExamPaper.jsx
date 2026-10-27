@@ -8,6 +8,7 @@ import { recordHistory, saveContent, removeSavedContent } from "../Services/cont
 import { getResourcePalette } from "../Services/resourcePalette";
 import { classOptions, subjectMap } from "../Services/curriculum";
 import TeacherAnswerKey from "../Components/TeacherAnswerKey";
+import ResourcePrint from "../Components/print/ResourcePrint";
 
 const ExamPaper = () => {
   const [formData, setFormData] = useState({
@@ -173,7 +174,8 @@ const ExamPaper = () => {
                     </div>
                   ))}
                   <p className="note">{generatedPaper.note}</p>
-                  <TeacherAnswerKey answerKey={generatedPaper.answerKey} />
+                  <ResourcePrint kind="exam" resource={generatedPaper} meta={formData} hint />
+                  <TeacherAnswerKey answerKey={generatedPaper.answerKey} title={generatedPaper.title} meta={formData} />
                 </>
               ) : (
                 <div className="empty-state">

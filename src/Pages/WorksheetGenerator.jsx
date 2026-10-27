@@ -7,6 +7,7 @@ import { describeGeminiError } from "../Services/geminiService";
 import { recordHistory, saveContent, removeSavedContent } from "../Services/contentStore";
 import { getResourcePalette } from "../Services/resourcePalette";
 import { classOptions, subjectMap } from "../Services/curriculum";
+import ResourcePrint from "../Components/print/ResourcePrint";
 
 const slugify = (value) => (value || "worksheet").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "worksheet";
 
@@ -158,6 +159,7 @@ const WorksheetGenerator = () => {
                   <div className="worksheet-image-frame">
                     <img className="worksheet-image" src={image.dataUrl} alt={`Printable worksheet on ${formData.topic}`} />
                   </div>
+                  <ResourcePrint kind="worksheet" image={image.dataUrl} resource={{ title: image.title }} meta={formData} hint />
                   <p className="note">{image.note}</p>
                 </>
               ) : <p>Type a topic — Independence Day, Fractions, The Water Cycle — and generate a printable worksheet page.</p>
@@ -178,6 +180,7 @@ const WorksheetGenerator = () => {
                     </ul>
                   </div>
                 ))}
+                <ResourcePrint kind="worksheet" resource={result} meta={formData} hint />
                 <p className="note">{result.note}</p>
               </>
             ) : <p>Try a prompt to generate a worksheet for your class.</p>}

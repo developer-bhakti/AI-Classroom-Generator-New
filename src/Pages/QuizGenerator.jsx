@@ -7,6 +7,7 @@ import { describeGeminiError } from "../Services/geminiService";
 import { recordHistory, saveContent, removeSavedContent } from "../Services/contentStore";
 import { getResourcePalette } from "../Services/resourcePalette";
 import { classOptions, subjectMap } from "../Services/curriculum";
+import ResourcePrint from "../Components/print/ResourcePrint";
 import { LEVEL_BANDS, describeBand, toneForLevelLabel } from "../Services/assessmentGrading";
 import { buildRound, scoreRound, studentMessage, wrongSourceIndexes } from "../Services/quizRounds";
 import { LevelPill, ScoreRing } from "../Components/assessment/Badges";
@@ -181,6 +182,7 @@ const QuizGenerator = () => {
                     <button type="button" className="primary-btn full" onClick={startQuiz} disabled={total === 0}>
                       <PlayCircle size={16} /> Start Quiz
                     </button>
+                    <ResourcePrint kind="quiz" resource={result} meta={formData} disabled={total === 0} hint />
                   </div>
                 )}
 

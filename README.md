@@ -1,5 +1,10 @@
 # Adiuvaret AI Classroom Generator — Complete Feature Guide
 
+> **This guide describes the first version of the app** (before accounts, the database, Child Assessment, the
+> Syllabus, subscriptions and the Admin Dashboard). In particular, it says your data is stored in the browser:
+> that is no longer true. **For the current, complete documentation see
+> [`docs/PROJECT-DOCUMENTATION.md`](docs/PROJECT-DOCUMENTATION.md).**
+
 *Written in plain language — no technical background required.*
 
 **Prepared for:** info@adiuvaret.in

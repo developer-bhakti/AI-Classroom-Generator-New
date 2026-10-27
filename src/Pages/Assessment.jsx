@@ -83,11 +83,11 @@ const Assessment = () => {
 
   useEffect(() => {
     let active = true;
-    listStudents()
+    listStudents(user?.id)
       .then((rows) => { if (active) setStudents(rows); })
       .catch((err) => { if (active) setStudentsError(err.message); });
     return () => { active = false; };
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     if (!IN_PROGRESS_STAGES.has(stage)) return undefined;

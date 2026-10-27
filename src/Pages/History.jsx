@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import Navbar from "../Components/Navbar";
 import Sidebar from "../Components/Sidebar";
 import TeacherAnswerKey from "../Components/TeacherAnswerKey";
+import ResourcePrint from "../Components/print/ResourcePrint";
 import {
   Search,
   Bookmark,
@@ -185,7 +186,13 @@ const History = () => {
                 </div>
               ))}
               {preview.note ? <p className="note">{preview.note}</p> : null}
-              <TeacherAnswerKey answerKey={preview.answerKey} />
+              <ResourcePrint
+                kind={preview.type}
+                resource={preview}
+                meta={{ className: preview.className, subject: preview.subject }}
+                disabled={preview.type === "quiz" && !preview.questions?.length}
+              />
+              <TeacherAnswerKey answerKey={preview.answerKey} title={preview.title} meta={{ className: preview.className, subject: preview.subject }} />
             </div>
           </div>
         </div>

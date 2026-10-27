@@ -1,11 +1,12 @@
 import React from "react";
 import { KeyRound } from "lucide-react";
+import ResourcePrint from "./print/ResourcePrint";
 
 /**
  * The exam's answer key, kept apart from the paper. Collapsed until the teacher opens it, and labelled so it
  * is never mistaken for part of what the students are given. Renders nothing when there is no key.
  */
-const TeacherAnswerKey = ({ answerKey }) => {
+const TeacherAnswerKey = ({ answerKey, title, meta }) => {
   if (!Array.isArray(answerKey) || answerKey.length === 0) return null;
 
   return (
@@ -21,6 +22,7 @@ const TeacherAnswerKey = ({ answerKey }) => {
           </ul>
         </div>
       ))}
+      {title ? <ResourcePrint kind="answer-key" resource={{ title, answerKey }} meta={meta} label="Print answer key (teacher copy)" /> : null}
     </details>
   );
 };

@@ -112,7 +112,7 @@ The student's paper must NEVER contain answers, hints, worked solutions, explana
 
 "answerKey" is for the TEACHER ONLY and is printed separately from the paper. It must contain exactly two sections, "Section A answers" and "Section B answers", each listing the answers in question order, for example "1. 12 (2 marks)", with a brief marking hint for the longer questions. Do not repeat the questions.
 
-Teacher's instructions to include on the paper: ${instructions || "none"}.
+${instructions ? `Begin "Section A" with these instructions for the students, as its own first item with no label and no question number: ${instructions}` : ""}
 
 ${JSON_REMINDER}`;
 };

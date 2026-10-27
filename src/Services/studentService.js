@@ -70,10 +70,19 @@ const fromSessionRow = (row) => ({
 
 // ---- Students ----
 
-export const listStudents = async () => {
-  const rows = unwrap(await supabase.from("students").select("*").order("name", { ascending: true }), "load your students");
+// The database lets an admin READ every teacher's children (for support), but only a child's own teacher
+// may change them. So this list is always limited to the signed-in teacher's own children: otherwise an
+// admin would be shown children they can neither edit, delete, nor save an assessment for.
+export const listStudents = async (teacherId) => {
+  if (!teacherId) return [];
+  const rows = unwrap(
+    await supabase.from("students").select("*").eq("teacher_id", teacherId).order("name", { ascending: true }),
+    "load your students"
+  );
   return rows.map(fromStudentRow);
 };
+
+const NOT_CHANGED = "nothing was changed. This child may belong to another teacher's account, or may already have been removed.";
 
 export const addStudent = async ({ teacherId, name, className }) => {
   const row = unwrap(
@@ -84,15 +93,19 @@ export const addStudent = async ({ teacherId, name, className }) => {
 };
 
 export const updateStudent = async (studentId, { name, className }) => {
+  // maybeSingle: a row the caller may not change is simply not matched, which is not a database error.
   const row = unwrap(
-    await supabase.from("students").update({ name: name.trim(), class_name: className }).eq("id", studentId).select().single(),
+    await supabase.from("students").update({ name: name.trim(), class_name: className }).eq("id", studentId).select().maybeSingle(),
     "update the student"
   );
+  if (!row) throw new Error(`Could not update the student: ${NOT_CHANGED}`);
   return fromStudentRow(row);
 };
 
 export const deleteStudent = async (studentId) => {
-  unwrap(await supabase.from("students").delete().eq("id", studentId), "remove the student");
+  // A delete that matches no row is not an error to Postgres, so ask for the removed rows and check.
+  const removed = unwrap(await supabase.from("students").delete().eq("id", studentId).select("id"), "remove the student");
+  if (!removed || removed.length === 0) throw new Error(`Could not remove the student: ${NOT_CHANGED.replace("changed", "removed")}`);
 };
 
 // ---- Assessments ----
