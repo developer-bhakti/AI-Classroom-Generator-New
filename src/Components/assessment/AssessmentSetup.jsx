@@ -14,6 +14,7 @@ import {
   termLabel
 } from "../../Services/curriculum";
 import { listSyllabus, summarizePeriod } from "../../Services/syllabusService";
+import { explainDataError } from "../../Services/dataErrors";
 import { addStudent } from "../../Services/studentService";
 
 /**
@@ -23,8 +24,8 @@ import { addStudent } from "../../Services/studentService";
  */
 const AssessmentSetup = ({ userId, isAdmin, students, onStudentAdded, initial, onContinue }) => {
   const [studentId, setStudentId] = useState(initial.studentId || "");
-  const [className, setClassName] = useState(initial.className || "UKG");
-  const [subject, setSubject] = useState(initial.subject || subjectMap[initial.className || "UKG"][0]);
+  const [className, setClassName] = useState(initial.className || "Class 1");
+  const [subject, setSubject] = useState(initial.subject || subjectMap[initial.className || "Class 1"][0]);
   const [academicYear, setAcademicYear] = useState(initial.academicYear || currentAcademicYear());
   const [periodKey, setPeriodKey] = useState(initial.periodKey || currentMonthName());
 
@@ -193,7 +194,7 @@ const AssessmentSetup = ({ userId, isAdmin, students, onStudentAdded, initial, o
         </div>
 
         {syllabusError ? (
-          <p className="inline-error"><AlertTriangle size={14} /> {syllabusError}. Run the latest supabase/schema.sql so the syllabus table exists.</p>
+          <p className="inline-error"><AlertTriangle size={14} /> {explainDataError(syllabusError, { missing: "the syllabus table" })}</p>
         ) : null}
 
         {summary ? summary.months.map((item) => (

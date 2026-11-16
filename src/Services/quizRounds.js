@@ -11,8 +11,9 @@ import { getPerformanceLevel, shuffleChoices } from "./assessmentGrading";
  */
 export const buildRound = (questions, sourceIndexes = questions.map((_, index) => index)) =>
   sourceIndexes.map((sourceIndex) => {
-    const { question, options, correctIndex, explanation } = questions[sourceIndex];
-    return { sourceIndex, question, explanation: explanation || "", ...shuffleChoices(options, correctIndex) };
+    const { question, options, correctIndex, explanation, topic, activity } = questions[sourceIndex];
+    // topic / activity are read by the performance analysis (quizAnalysis.js); older saved quizzes simply lack them.
+    return { sourceIndex, question, topic: topic || "", activity: activity || "", explanation: explanation || "", ...shuffleChoices(options, correctIndex) };
   });
 
 /**

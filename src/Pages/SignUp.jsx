@@ -103,7 +103,7 @@ const SignUp = () => {
           <div className="eyebrow">Create your account</div>
           <h1>Start building smarter classroom resources.</h1>
           <p>
-            Join the Adiuvaret workspace to create worksheets, lesson plans, quizzes, and activities in minutes.
+            Join the Adiuvaret workspace to create lesson plans, quizzes, and exam papers in minutes.
           </p>
 
           <div className="badge-row">

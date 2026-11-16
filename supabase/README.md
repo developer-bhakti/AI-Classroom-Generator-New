@@ -23,6 +23,8 @@ auto-profile trigger, and the four seed plans. It is safe to re-run.
 > are added and `assessments.completed_month` is renamed to `month`, keeping its data. Until it
 > has been run, those pages show a "run the latest schema.sql" message.
 
+> **Textbooks (NCERT books).** The current file also adds the `books` and `book_chapters` tables and a **private storage bucket called `books`** (PDF only, 50 MB per file). Everyone signed in can read them; only an admin can upload, edit or delete. Re-run `schema.sql` before using the **Textbooks** page; until then it shows "The textbook storage is not set up yet" or a missing-table message. The bucket is created by the SQL itself; if your project refuses to create policies on `storage.objects` from the SQL Editor, create a private bucket named `books` in **Storage** and add two policies by hand: read for any signed-in user, and insert/update/delete only when `public.is_admin()`.
+
 > **Exam answer keys.** The current file also adds `generated_content.answer_key`, where an exam's teacher-only answer key is stored apart from the student paper. Re-run `schema.sql` to add it; until then exam papers still save, but without their key.
 
 **Edit the prices** at the bottom of `schema.sql` before running if you don't want the

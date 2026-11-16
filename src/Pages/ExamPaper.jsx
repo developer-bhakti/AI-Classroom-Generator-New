@@ -9,6 +9,8 @@ import { getResourcePalette } from "../Services/resourcePalette";
 import { classOptions, subjectMap } from "../Services/curriculum";
 import TeacherAnswerKey from "../Components/TeacherAnswerKey";
 import ResourcePrint from "../Components/print/ResourcePrint";
+import BookSource from "../Components/books/BookSource";
+import { useBookSelection } from "../Components/books/useBookSelection";
 
 const ExamPaper = () => {
   const [formData, setFormData] = useState({
@@ -28,6 +30,7 @@ const ExamPaper = () => {
   const [outputPalette, setOutputPalette] = useState(null);
 
   const subjects = useMemo(() => subjectMap[formData.className] || [], [formData.className]);
+  const bookState = useBookSelection(formData.className, formData.subject);
   // The form previews the colour live; once generated the card keeps the palette it was
   // generated with, so editing the dropdowns cannot re-tint output already on screen.
   const formPalette = useMemo(() => getResourcePalette({ ...formData, type: "exam" }), [formData]);
@@ -47,12 +50,14 @@ const ExamPaper = () => {
     setError(null);
 
     try {
+      const source = await bookState.buildSource(formData.topic); // the textbook pages, or null when the textbook is off
       const paper = await generateResource({
         type: "exam",
         formData: {
           ...formData,
           topic: `${formData.subject}: ${formData.topic}`
-        }
+        },
+        source
       });
       setGeneratedPaper(paper);
       setEntry(await recordHistory({ type: "exam", formData, result: paper }));
@@ -113,6 +118,8 @@ const ExamPaper = () => {
 
               <label>Topic</label>
               <input name="topic" value={formData.topic} onChange={handleChange} />
+
+              <BookSource state={bookState} className={formData.className} />
 
               <label>Duration</label>
               <input name="duration" value={formData.duration} onChange={handleChange} />

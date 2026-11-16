@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Lock, X, Sparkles } from "lucide-react";
 import { useAuth } from "../context/useAuth";
 import { useSubscription } from "../context/useSubscription";
+import { isFreePath } from "../Services/freeAccess";
 
 const REOPEN_DELAY_MS = 10000;
 
@@ -14,6 +15,9 @@ const SubscriptionNag = () => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(true);
 
+  // Never on a free page: a child playing a quiz or an activity must not be interrupted by a payment request.
+  const onFreePage = isFreePath(location.pathname);
+
   // Suppressed on the subscription page itself, otherwise the popup would sit on
   // top of the plan buttons and the Razorpay checkout window the user needs to reach.
   const suppressed =
@@ -21,6 +25,7 @@ const SubscriptionNag = () => {
     subLoading ||
     !session ||
     isActive ||
+    onFreePage ||
     location.pathname === "/subscription";
 
   useEffect(() => {
@@ -30,8 +35,11 @@ const SubscriptionNag = () => {
   }, [suppressed, open]);
 
   useEffect(() => {
-    if (suppressed) setOpen(true);
-  }, [suppressed]);
+    // Signed out / subscribed / on the plans page: the next visit starts with the popup. Coming from a free
+    // page it starts closed instead, so finishing a quiz and moving on does not flash a payment request at once
+    // (it returns after the usual delay if they are still not subscribed).
+    if (suppressed) setOpen(!onFreePage);
+  }, [suppressed, onFreePage]);
 
   if (suppressed || !open) return null;
 
@@ -45,8 +53,8 @@ const SubscriptionNag = () => {
         <div className="nag-icon"><Lock size={24} /></div>
         <h3>Your subscription is inactive</h3>
         <p>
-          Worksheets, lesson plans, quizzes, activities, exam papers, and your saved
-          library are locked until you subscribe.
+          Lesson plans, exam papers, child assessments, and your saved
+          library are locked until you subscribe. Quizzes are always free.
         </p>
 
         <button

@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useSyncExternalStore } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
-  FileText,
   BookOpen,
   HelpCircle,
   Sparkles,
@@ -14,6 +13,7 @@ import {
   ClipboardCheck,
   ClipboardList,
   Library,
+  BookMarked,
   Users,
   CreditCard,
   ShieldCheck,
@@ -45,13 +45,12 @@ const Sidebar = () => {
   const menu = [
     { name: "Dashboard", icon: <LayoutDashboard size={18} />, path: "/dashboard" },
     ...(isAdmin ? [{ name: "Admin Dashboard", icon: <ShieldCheck size={18} />, path: "/admin" }] : []),
-    { name: "Worksheet Generator", icon: <FileText size={18} />, path: "/worksheet" },
     { name: "Lesson Plan Generator", icon: <BookOpen size={18} />, path: "/lesson" },
     { name: "Quiz Generator", icon: <HelpCircle size={18} />, path: "/quiz" },
-    { name: "Activity Generator", icon: <Sparkles size={18} />, path: "/activities" },
     { name: "Exam Paper Generator", icon: <ClipboardCheck size={18} />, path: "/exam" },
     { name: "Child Assessment", icon: <ClipboardList size={18} />, path: "/assessment" },
     { name: "Syllabus", icon: <Library size={18} />, path: "/syllabus" },
+    { name: "Textbooks", icon: <BookMarked size={18} />, path: "/books" },
     { name: "Students & Reports", icon: <Users size={18} />, path: "/students" },
     { name: "Saved Content", icon: <FolderKanban size={18} />, path: "/saved" },
     { name: "History", icon: <History size={18} />, path: "/history" },

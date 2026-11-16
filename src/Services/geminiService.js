@@ -1,5 +1,7 @@
 import { ACADEMIC_MONTHS } from "./curriculum";
 import { QUESTION_TYPES, SKILL_AREAS } from "./assessmentGrading";
+import { BookSourceError } from "./bookChapters";
+import { BOOK_SYSTEM_RULES, BOOK_INDEX_SYSTEM_INSTRUCTION } from "./bookGrounding";
 
 const DEFAULT_MODEL = "gemini-flash-latest";
 // Image models are not on the Gemini free tier — this needs a billing-enabled key.
@@ -27,6 +29,9 @@ export class GeminiRateLimitError extends Error {}
 export class GeminiNetworkError extends Error {}
 export class GeminiResponseError extends Error {}
 
+export const isGeminiError = (err) =>
+  [GeminiConfigError, GeminiAuthError, GeminiRateLimitError, GeminiNetworkError, GeminiResponseError].some((Type) => err instanceof Type);
+
 export const describeGeminiError = (err) => {
   if (err instanceof GeminiNetworkError && err.timedOut) return "Gemini is taking too long to answer right now. Try again in a moment.";
   if (err instanceof GeminiConfigError) return err.message;
@@ -37,6 +42,8 @@ export const describeGeminiError = (err) => {
   }
   if (err instanceof GeminiNetworkError) return "Couldn't reach Gemini. Check your internet connection and try again.";
   if (err instanceof GeminiResponseError) return err.message || "Gemini returned something unexpected. Try again.";
+  // Textbook problems a teacher can fix (no chapter matched, too many pages, a locked PDF) are already written for them.
+  if (err instanceof BookSourceError) return err.message;
   return "Something went wrong while generating this. Try again.";
 };
 
@@ -101,15 +108,29 @@ const QUIZ_SCHEMA = {
           question: { type: "STRING" },
           options: { type: "ARRAY", items: { type: "STRING" } },
           correctIndex: { type: "INTEGER" },
+          topic: { type: "STRING" },
           explanation: { type: "STRING" }
         },
         required: ["question", "options", "correctIndex"],
-        propertyOrdering: ["question", "options", "correctIndex", "explanation"]
+        propertyOrdering: ["question", "options", "correctIndex", "topic", "explanation"]
+      }
+    },
+    // The skills the quiz checks, each with a home activity; read back by the performance analysis.
+    topics: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          name: { type: "STRING" },
+          activity: { type: "STRING" }
+        },
+        required: ["name", "activity"],
+        propertyOrdering: ["name", "activity"]
       }
     }
   },
   required: ["title", "summary", "questions"],
-  propertyOrdering: ["title", "summary", "questions"]
+  propertyOrdering: ["title", "summary", "topics", "questions"]
 };
 
 const ASSESSMENT_SCHEMA = {
@@ -368,8 +389,10 @@ const shouldFailOver = (err) =>
 
 const requestFromModel = async (model, prompt, schema, {
   systemInstruction = SYSTEM_INSTRUCTION,
+  // Textbook pages (PDF) to read with the prompt: [{ mimeType, data }] with base64 data. Pages go first, then the question.
+  documents = [],
   // Multi-turn callers pass the whole conversation; everyone else just sends one prompt.
-  contents = [{ role: "user", parts: [{ text: prompt }] }],
+  contents = [{ role: "user", parts: [...documents.map(({ mimeType, data }) => ({ inlineData: { mimeType, data } })), { text: prompt }] }],
   temperature = 0.7,
   maxOutputTokens = 4096,
   timeoutMs = REQUEST_TIMEOUT_MS
@@ -425,8 +448,27 @@ const requestGeminiJSON = async (prompt, schema, options = {}) => {
   throw lastError;
 };
 
-export const generateStructuredContent = async (prompt) => {
-  const parsed = await requestGeminiJSON(prompt, RESULT_SCHEMA);
+// Reading pages takes longer than answering from memory.
+const SOURCE_TIMEOUT_MS = 60000;
+
+/**
+ * Adds a textbook to a request. `source.documents` are the chapter pages; the system instruction gains the
+ * textbook-mode rules (bookGrounding.js) and the temperature drops so the model stays close to the pages.
+ * Without a source the options come back untouched, so every existing call behaves exactly as before.
+ */
+const withSource = (options, source) => {
+  if (!source?.documents?.length) return options;
+  return {
+    ...options,
+    systemInstruction: `${SYSTEM_INSTRUCTION}\n\n${BOOK_SYSTEM_RULES}`,
+    documents: source.documents,
+    temperature: 0.3,
+    timeoutMs: Math.max(options.timeoutMs ?? 0, SOURCE_TIMEOUT_MS)
+  };
+};
+
+export const generateStructuredContent = async (prompt, { source } = {}) => {
+  const parsed = await requestGeminiJSON(prompt, RESULT_SCHEMA, withSource({}, source));
 
   if (!validateShape(parsed)) {
     throw new GeminiResponseError("Gemini returned an unexpected format. Try again.");
@@ -439,12 +481,24 @@ export const generateStructuredContent = async (prompt) => {
   };
 };
 
+// A long paper needs more room to be written and more time to arrive than the short default. A request for a
+// handful of questions keeps the defaults, so small jobs fail over to the backup model as quickly as before.
+const QUIZ_TOKENS_PER_QUESTION = 220; // generous on purpose: Hindi and other scripts take several times the tokens
+const EXAM_TOKENS_PER_QUESTION = 300; // the question and its line in the answer key
+const sizeRequest = (count, tokensPerQuestion) => {
+  if (!count) return {};
+  return {
+    maxOutputTokens: Math.min(16384, Math.max(4096, 800 + count * tokensPerQuestion)),
+    timeoutMs: Math.min(90000, Math.max(REQUEST_TIMEOUT_MS, 15000 + count * 2000))
+  };
+};
+
 const isSectionList = (list) =>
   Array.isArray(list) && list.every((section) => isPlainObject(section) && typeof section.heading === "string" && Array.isArray(section.items) && section.items.every((item) => typeof item === "string"));
 
 /** An exam paper: `sections` is the student's paper, `answerKey` the teacher's separate key (empty if the model gave none). */
-export const generateExamContent = async (prompt) => {
-  const parsed = await requestGeminiJSON(prompt, EXAM_SCHEMA);
+export const generateExamContent = async (prompt, { count, source } = {}) => {
+  const parsed = await requestGeminiJSON(prompt, EXAM_SCHEMA, withSource(sizeRequest(count, EXAM_TOKENS_PER_QUESTION), source));
 
   if (!validateShape(parsed)) {
     throw new GeminiResponseError("Gemini returned an unexpected format. Try again.");
@@ -499,23 +553,90 @@ export const generateImage = async (prompt, { aspectRatio = "3:4" } = {}) => {
   return { dataUrl: `data:${mimeType};base64,${inline.data}`, mimeType };
 };
 
-export const generateQuizContent = async (prompt) => {
-  const parsed = await requestGeminiJSON(prompt, QUIZ_SCHEMA);
+/**
+ * A multiple-choice quiz. `count` is how many questions the chosen time allows (questionPlan.js): it sizes the
+ * request, and if the model writes extra the surplus is dropped so the quiz still fits the time. A model that
+ * writes fewer is accepted, because a slightly shorter quiz is better than none.
+ *
+ * Each question carries its `topic` and that topic's home `activity`. They ride along inside the saved questions,
+ * so a quiz opened from History can still be analysed without any extra column.
+ */
+export const generateQuizContent = async (prompt, { count, source } = {}) => {
+  const parsed = await requestGeminiJSON(prompt, QUIZ_SCHEMA, withSource(sizeRequest(count, QUIZ_TOKENS_PER_QUESTION), source));
 
   if (!validateQuizShape(parsed)) {
     throw new GeminiResponseError("Gemini returned an unexpected format. Try again.");
   }
 
+  const text = (value) => (typeof value === "string" ? value.trim() : "");
+  const key = (value) => text(value).toLowerCase().replace(/\s+/g, " ");
+  const topics = (Array.isArray(parsed.topics) ? parsed.topics : [])
+    .filter((t) => isPlainObject(t) && text(t.name))
+    .slice(0, 8)
+    .map((t) => ({ name: text(t.name), activity: text(t.activity) }));
+  const topicFor = new Map(topics.map((t) => [key(t.name), t]));
+
+  const chosen = count ? parsed.questions.slice(0, count) : parsed.questions;
   return {
     title: parsed.title,
     summary: parsed.summary,
-    questions: parsed.questions.map((q) => ({
-      question: q.question,
-      options: q.options,
-      correctIndex: q.correctIndex,
-      explanation: typeof q.explanation === "string" ? q.explanation.trim() : ""
-    }))
+    topics,
+    questions: chosen.map((q) => {
+      const topic = topicFor.get(key(q.topic));
+      return {
+        question: q.question,
+        options: q.options,
+        correctIndex: q.correctIndex,
+        // The model's own wording when it did not match the list exactly: still a usable label for a parent.
+        topic: topic ? topic.name : text(q.topic),
+        activity: topic ? topic.activity : "",
+        explanation: text(q.explanation)
+      };
+    })
   };
+};
+
+// ---- Reading a textbook ----
+
+const BOOK_INDEX_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    chapters: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          title: { type: "STRING" },
+          startPage: { type: "INTEGER" },
+          summary: { type: "STRING" },
+          topics: { type: "ARRAY", items: { type: "STRING" } }
+        },
+        required: ["title", "startPage"],
+        propertyOrdering: ["title", "startPage", "summary", "topics"]
+      }
+    }
+  },
+  required: ["chapters"],
+  propertyOrdering: ["chapters"]
+};
+
+/**
+ * Reads one part of a textbook (a PDF of up to ~80 pages) and returns the chapters that start in it, with page
+ * numbers counted from 1 inside that part. bookChapters.normaliseChapters cleans the result.
+ */
+export const generateBookIndex = async (prompt, documents) => {
+  const parsed = await requestGeminiJSON(prompt, BOOK_INDEX_SCHEMA, {
+    systemInstruction: BOOK_INDEX_SYSTEM_INSTRUCTION,
+    documents,
+    temperature: 0.1,
+    maxOutputTokens: 8192,
+    timeoutMs: 90000
+  });
+
+  if (!isPlainObject(parsed) || !Array.isArray(parsed.chapters)) {
+    throw new GeminiResponseError("Gemini returned an unexpected format. Try again.");
+  }
+  return parsed.chapters;
 };
 
 // ---- Student assessment ----

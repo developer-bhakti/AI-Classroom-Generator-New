@@ -8,6 +8,8 @@ import { recordHistory, saveContent, removeSavedContent } from "../Services/cont
 import { getResourcePalette } from "../Services/resourcePalette";
 import { classOptions, subjectMap } from "../Services/curriculum";
 import ResourcePrint from "../Components/print/ResourcePrint";
+import BookSource from "../Components/books/BookSource";
+import { useBookSelection } from "../Components/books/useBookSelection";
 
 const LessonGenerator = () => {
   const [formData, setFormData] = useState({ topic: "Uses of Water", className: "Class 3", subject: "Science", duration: "45 mins", objective: "Explain each stage clearly" });
@@ -19,6 +21,7 @@ const LessonGenerator = () => {
   const [outputPalette, setOutputPalette] = useState(null);
 
   const subjects = useMemo(() => subjectMap[formData.className] || [], [formData.className]);
+  const bookState = useBookSelection(formData.className, formData.subject);
   // The form previews the colour live; once generated the card keeps the palette it was
   // generated with, so editing the dropdowns cannot re-tint output already on screen.
   const formPalette = useMemo(() => getResourcePalette({ ...formData, type: "lesson" }), [formData]);
@@ -37,7 +40,8 @@ const LessonGenerator = () => {
     setLoading(true);
     setError(null);
     try {
-      const resource = await generateResource({ type: "lesson", formData: { ...formData, topic: `${formData.subject}: ${formData.topic}` } });
+      const source = await bookState.buildSource(formData.topic); // the textbook pages, or null when the textbook is off
+      const resource = await generateResource({ type: "lesson", formData: { ...formData, topic: `${formData.subject}: ${formData.topic}` }, source });
       setResult(resource);
       setEntry(await recordHistory({ type: "lesson", formData, result: resource }));
       setSaved(false);
@@ -82,6 +86,7 @@ const LessonGenerator = () => {
             </select>
             <label>Topic</label>
             <input name="topic" value={formData.topic} onChange={handleChange} />
+            <BookSource state={bookState} className={formData.className} />
             <label>Duration</label>
             <input name="duration" value={formData.duration} onChange={handleChange} />
             <label>Learning objective</label>

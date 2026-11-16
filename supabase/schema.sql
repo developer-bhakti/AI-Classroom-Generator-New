@@ -474,6 +474,70 @@ create policy teacher_requests_admin_manage on public.teacher_requests
   for all using (public.is_admin()) with check (public.is_admin());
 
 -- ============================================================
+-- Textbooks. An admin uploads an NCERT book (PDF); Gemini reads it once and lists its chapters with page
+-- ranges. Generators then cut the chapters they need out of the stored PDF and teach only from those pages.
+-- Everyone signed in may read; only an admin may add, change or delete (is_admin() runs in Postgres).
+-- ============================================================
+
+create table if not exists public.books (
+  id          uuid primary key default gen_random_uuid(),
+  title       text not null,
+  class_name  text not null,
+  subject     text not null,
+  language    text not null default 'English',
+  page_count  integer not null default 0,
+  file_path   text not null default '',
+  status      text not null default 'processing' check (status in ('processing', 'ready', 'failed')),
+  uploaded_by uuid references public.profiles(id) on delete set null,
+  created_at  timestamptz not null default now()
+);
+create index if not exists books_class_subject_idx on public.books (class_name, subject);
+
+create table if not exists public.book_chapters (
+  id         uuid primary key default gen_random_uuid(),
+  book_id    uuid not null references public.books(id) on delete cascade,
+  position   integer not null,
+  title      text not null,
+  start_page integer not null check (start_page >= 1),
+  end_page   integer not null check (end_page >= start_page),
+  summary    text not null default '',
+  topics     jsonb not null default '[]'::jsonb
+);
+create index if not exists book_chapters_book_idx on public.book_chapters (book_id, position);
+
+alter table public.books         enable row level security;
+alter table public.book_chapters enable row level security;
+
+drop policy if exists books_select_authenticated on public.books;
+create policy books_select_authenticated on public.books
+  for select using (auth.uid() is not null);
+
+drop policy if exists books_admin_manage on public.books;
+create policy books_admin_manage on public.books
+  for all using (public.is_admin()) with check (public.is_admin());
+
+drop policy if exists book_chapters_select_authenticated on public.book_chapters;
+create policy book_chapters_select_authenticated on public.book_chapters
+  for select using (auth.uid() is not null);
+
+drop policy if exists book_chapters_admin_manage on public.book_chapters;
+create policy book_chapters_admin_manage on public.book_chapters
+  for all using (public.is_admin()) with check (public.is_admin());
+
+-- The PDFs themselves: a private bucket (nobody can link to a file), PDF only, 50 MB each.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('books', 'books', false, 52428800, array['application/pdf'])
+on conflict (id) do update set file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists books_files_read on storage.objects;
+create policy books_files_read on storage.objects
+  for select using (bucket_id = 'books' and auth.uid() is not null);
+
+drop policy if exists books_files_admin_write on storage.objects;
+create policy books_files_admin_write on storage.objects
+  for all using (bucket_id = 'books' and public.is_admin()) with check (bucket_id = 'books' and public.is_admin());
+
+-- ============================================================
 -- Seed plans — edit these prices to whatever you actually charge
 -- ============================================================
 

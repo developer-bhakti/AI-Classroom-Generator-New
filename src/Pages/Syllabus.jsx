@@ -17,6 +17,7 @@ import {
 } from "../Services/curriculum";
 import { describeGeminiError } from "../Services/geminiService";
 import { draftSyllabus, listSyllabus, pickMonthEntry, saveSyllabusEntry } from "../Services/syllabusService";
+import { explainDataError } from "../Services/dataErrors";
 
 const PREVIEW_TOPICS = 3;
 
@@ -27,7 +28,7 @@ const Syllabus = () => {
   const [params, setParams] = useSearchParams();
   const years = useMemo(() => academicYearOptions(), []);
 
-  const initialClass = validOr(params.get("class"), classOptions, "UKG");
+  const initialClass = validOr(params.get("class"), classOptions, "Class 1");
   const [className, setClassName] = useState(initialClass);
   const [subject, setSubject] = useState(validOr(params.get("subject"), subjectMap[initialClass], subjectMap[initialClass][0]));
   const [academicYear, setAcademicYear] = useState(/^\d{4}-\d{2}$/.test(params.get("year") || "") ? params.get("year") : currentAcademicYear());
@@ -59,7 +60,7 @@ const Syllabus = () => {
       }
     } catch (err) {
       if (isCurrent()) {
-        setError(`${err.message}. Run the latest supabase/schema.sql so the syllabus table exists.`);
+        setError(explainDataError(err.message, { missing: "the syllabus table" }));
         setEntries([]);
       }
     }

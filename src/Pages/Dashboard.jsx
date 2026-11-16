@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
 import Navbar from "../Components/Navbar";
 import Sidebar from "../Components/Sidebar";
-import { FileText, BookOpen, HelpCircle, Sparkles, ArrowRight, PencilRuler, Languages } from "lucide-react";
+import { BookOpen, HelpCircle, ArrowRight, PencilRuler, Languages } from "lucide-react";
 import { LANGUAGES, getLanguage, setLanguage } from "../Services/contentStore";
 import { useAuth } from "../context/useAuth";
 import {
@@ -30,12 +30,6 @@ const HUB_CARDS = [
 
 const cards = [
   {
-    title: "AI Worksheet Generator",
-    description: "Create print-ready worksheets in seconds.",
-    path: "/worksheet",
-    icon: <FileText size={22} />
-  },
-  {
     title: "AI Lesson Plan Generator",
     description: "Outline engaging lessons with clear structure.",
     path: "/lesson",
@@ -46,12 +40,6 @@ const cards = [
     description: "Assess understanding with ready-made questions.",
     path: "/quiz",
     icon: <HelpCircle size={22} />
-  },
-  {
-    title: "AI Classroom Activity Generator",
-    description: "Spark curiosity with fresh classroom ideas.",
-    path: "/activities",
-    icon: <Sparkles size={22} />
   }
 ];
 
@@ -64,12 +52,12 @@ const quickStats = [
 const Dashboard = () => {
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const [selected, setSelected] = useState("worksheet");
+  const [selected, setSelected] = useState("lesson");
   const [showCustomize, setShowCustomize] = useState(false);
   const [language, setLanguageState] = useState(() => getLanguage());
 
   const [academicYear, setAcademicYear] = useState(() => currentAcademicYear());
-  const [className, setClassName] = useState("UKG");
+  const [className, setClassName] = useState("Class 1");
   const [subject, setSubject] = useState("English");
   const [period, setPeriod] = useState(() => currentMonthName());
 
@@ -93,10 +81,6 @@ const Dashboard = () => {
   };
 
   const featureCopy = useMemo(() => ({
-    worksheet: {
-      title: "Worksheet Generator",
-      text: "Turn any topic into a polished practice sheet with warm-up, tasks, and reflection prompts."
-    },
     lesson: {
       title: "Lesson Builder",
       text: "Create complete lesson plans with objectives, guided practice, and closing activities."
@@ -104,10 +88,6 @@ const Dashboard = () => {
     quiz: {
       title: "Quiz Maker",
       text: "Build short assessments that align with your class goals and pace."
-    },
-    activity: {
-      title: "Activity Studio",
-      text: "Generate interactive activities that make learning feel energetic and collaborative."
     }
   }), []);
 
@@ -182,10 +162,10 @@ const Dashboard = () => {
               <p className="eyebrow">Adiuvaret AI Classroom Generator</p>
               <h1>Design impactful lessons in minutes.</h1>
               <p className="hero-text">
-                Empower your classroom with instantly generated worksheets, lesson plans, quizzes, and activities tailored to your students.
+                Empower your classroom with instantly generated lesson plans, quizzes, and exam papers tailored to your students.
               </p>
               <div className="hero-actions">
-                <Link to="/worksheet" className="primary-btn">
+                <Link to="/lesson" className="primary-btn">
                   <PencilRuler size={16} /> Start creating
                 </Link>
                 <button type="button" className="secondary-btn" onClick={() => setShowCustomize(true)}>
@@ -246,7 +226,7 @@ const Dashboard = () => {
               <button type="button" className="modal-close-btn" onClick={() => setShowCustomize(false)}>×</button>
             </div>
             <div className="profile-modal-body">
-              <p>Choose the language the AI should write your generated resources in. This applies to every worksheet, lesson plan, quiz, activity, and exam paper you generate from now on.</p>
+              <p>Choose the language the AI should write your generated resources in. This applies to every lesson plan, quiz, and exam paper you generate from now on.</p>
               <div className="field-row">
                 <label>Generate in</label>
                 <div className="feature-tabs">

@@ -2,6 +2,7 @@ import { supabase } from "./supabaseClient";
 import { logActivity } from "./activityLog";
 import { describeAuthError } from "./authErrors";
 import { PASSWORD_EVENTS } from "./passwordRules";
+import { PARENT_CHOICE_ACTIONS } from "./parentChoice";
 
 const nowIso = () => new Date().toISOString();
 
@@ -154,6 +155,21 @@ export const getPasswordActivity = async (userId) => {
     .in("action", PASSWORD_EVENTS)
     .order("created_at", { ascending: false })
     .limit(60);
+
+  if (error) throw new Error(error.message);
+  return data || [];
+};
+
+// ---- Parent answers after a quiz (admin side) ----
+// Each answer is one activity_log row written by the parent's own browser (see QuizGenerator); admins may read everyone's log.
+
+export const listParentChoices = async () => {
+  const { data, error } = await supabase
+    .from("activity_log")
+    .select("id, action, metadata, created_at, profiles(full_name, email)")
+    .in("action", Object.values(PARENT_CHOICE_ACTIONS))
+    .order("created_at", { ascending: false })
+    .limit(100);
 
   if (error) throw new Error(error.message);
   return data || [];

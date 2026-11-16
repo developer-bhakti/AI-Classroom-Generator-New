@@ -1,13 +1,11 @@
 import { useEffect, useState } from "react";
-import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import Dashboard from "./Pages/Dashboard";
 import Login from "./Pages/Login";
 import SignUp from "./Pages/SignUp";
-import WorksheetGenerator from "./Pages/WorksheetGenerator";
 import LessonGenerator from "./Pages/LessonGenerator";
 import QuizGenerator from "./Pages/QuizGenerator";
-import ActivityIdeas from "./Pages/ActivityIdeas";
 import Settings from "./Pages/Settings";
 import ExamPaper from "./Pages/ExamPaper";
 import SavedContent from "./Pages/SavedContent";
@@ -19,6 +17,7 @@ import Admin from "./Pages/Admin";
 import Assessment from "./Pages/Assessment";
 import StudentProgress from "./Pages/StudentProgress";
 import Syllabus from "./Pages/Syllabus";
+import Books from "./Pages/Books";
 import ProtectedRoute from "./Components/ProtectedRoute";
 import AdminRoute from "./Components/AdminRoute";
 import SubscriptionNag from "./Components/SubscriptionNag";
@@ -71,14 +70,9 @@ function App() {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/worksheet"
-        element={
-          <ProtectedRoute requireSubscription>
-            <WorksheetGenerator />
-          </ProtectedRoute>
-        }
-      />
+      {/* The worksheet and activity generators were removed; an old bookmark lands on the dashboard instead of a blank page. */}
+      <Route path="/worksheet" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/activities" element={<Navigate to="/dashboard" replace />} />
       <Route
         path="/lesson"
         element={
@@ -90,16 +84,8 @@ function App() {
       <Route
         path="/quiz"
         element={
-          <ProtectedRoute requireSubscription>
+          <ProtectedRoute>
             <QuizGenerator />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/activities"
-        element={
-          <ProtectedRoute requireSubscription>
-            <ActivityIdeas />
           </ProtectedRoute>
         }
       />
@@ -124,6 +110,14 @@ function App() {
         element={
           <ProtectedRoute requireSubscription>
             <StudentProgress />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/books"
+        element={
+          <ProtectedRoute>
+            <Books />
           </ProtectedRoute>
         }
       />

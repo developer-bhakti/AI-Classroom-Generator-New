@@ -116,7 +116,7 @@ const History = () => {
               <h3>{items.length === 0 ? "No activity yet" : "No matches"}</h3>
               <p>
                 {items.length === 0
-                  ? "Every worksheet, lesson, quiz, activity, or exam paper you generate will show up here automatically."
+                  ? "Every lesson plan, quiz, or exam paper you generate will show up here automatically."
                   : "Try a different search term or filter."}
               </p>
               {items.length === 0 ? (

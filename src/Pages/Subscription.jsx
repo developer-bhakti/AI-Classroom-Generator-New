@@ -26,6 +26,8 @@ const daysLeft = (iso) => {
 const Subscription = () => {
   const location = useLocation();
   const lockedFrom = location.state?.locked;
+  // A parent who chose "AI Classes" after a quiz arrives with ?from=quiz and is shown what the plans add.
+  const fromQuiz = new URLSearchParams(location.search).get("from") === "quiz";
   const { user, profile } = useAuth();
   // Shared context, so unlocking here also lifts the route gate and stops the popup.
   const { subscription, refresh: refreshSubscription } = useSubscription();
@@ -96,8 +98,23 @@ const Subscription = () => {
 
           {lockedFrom && !banner ? (
             <div className="error-state" style={{ marginBottom: 16 }}>
-              <p><Lock size={16} /> That page is locked. Subscribe to unlock every generator and your saved library.</p>
+              <p><Lock size={16} /> That page is locked. Subscribe to unlock lesson plans, exam papers, child assessments and your saved library. Quizzes are free.</p>
             </div>
+          ) : null}
+
+          {fromQuiz ? (
+            <section className="panel-card quiz-plan-benefits" aria-labelledby="quiz-plan-benefits-title">
+              <h3 id="quiz-plan-benefits-title"><Sparkles size={18} /> AI Classes for your child</h3>
+              <p>Quizzes stay free. An AI Classes plan adds guided learning that follows how your child is doing:</p>
+              <ul>
+                <li><CheckCircle2 size={15} /> Assessments marked automatically, built from your child's own syllabus for the month</li>
+                <li><CheckCircle2 size={15} /> An areas-of-improvement report and a printable progress report for parents</li>
+                <li><CheckCircle2 size={15} /> An AI tutor that teaches the topics your child finds hard, followed by a short retest</li>
+                <li><CheckCircle2 size={15} /> Lesson plans and exam papers made for your child's class</li>
+                <li><CheckCircle2 size={15} /> A saved library of everything you create</li>
+              </ul>
+              <p className="content-row-meta">Choose a plan below. Nothing is charged until you press Subscribe.</p>
+            </section>
           ) : null}
 
           {banner ? (
@@ -153,6 +170,8 @@ const Subscription = () => {
                       <p className="plan-permonth">{formatINR(perMonth)}/month</p>
                       <ul className="plan-features">
                         <li><CheckCircle2 size={14} /> All generators included</li>
+                        <li><CheckCircle2 size={14} /> Child assessments with progress reports</li>
+                        <li><CheckCircle2 size={14} /> AI tutor practice on weak topics</li>
                         <li><CheckCircle2 size={14} /> Unlimited saved resources</li>
                         <li><Clock size={14} /> {plan.duration_months} month{plan.duration_months > 1 ? "s" : ""} of access</li>
                       </ul>

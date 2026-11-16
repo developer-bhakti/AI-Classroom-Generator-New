@@ -100,7 +100,7 @@ const Login = () => {
           <div className="eyebrow">AI Classroom Generator</div>
           <h1>Design smarter lessons with AI.</h1>
           <p>
-            Create worksheets, lesson plans, quizzes, and classroom activities in minutes with a calm, modern teaching workspace.
+            Create lesson plans, quizzes, and exam papers in minutes with a calm, modern teaching workspace.
           </p>
 
           <div className="badge-row">

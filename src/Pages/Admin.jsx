@@ -24,12 +24,15 @@ import {
   deleteSubscription,
   deleteUserAccount,
   listAllTeacherRequests,
+  listParentChoices,
   updateTeacherRequestStatus
 } from "../Services/adminService";
 import { ACTIVITY_LABELS } from "../Services/activityLog";
+import { PARENT_CHOICE_ACTIONS, PARENT_CHOICE_LABELS } from "../Services/parentChoice";
 import { REQUEST_STATUS_LABELS } from "../Services/studentService";
 import { RESOURCE_TYPES } from "../Services/contentStore";
 import UserIdLine from "../Components/admin/UserIdLine";
+import { explainDataError } from "../Services/dataErrors";
 import { addMonths, fromDateInput, toDateInput } from "../Services/dateInputs";
 import EditUserForm from "../Components/admin/EditUserForm";
 
@@ -52,6 +55,8 @@ const Admin = () => {
   const [query, setQuery] = useState("");
   const [teacherRequests, setTeacherRequests] = useState([]);
   const [requestsError, setRequestsError] = useState(null);
+  const [parentChoices, setParentChoices] = useState([]);
+  const [choicesError, setChoicesError] = useState(null);
 
   const [detailUser, setDetailUser] = useState(null);
   const [detail, setDetail] = useState({ activity: [], content: [], loading: false });
@@ -92,18 +97,23 @@ const Admin = () => {
     let active = true;
     (async () => {
       setLoading(true);
-      const [, planData, requestRows] = await Promise.all([
+      const [, planData, requestRows, choiceRows] = await Promise.all([
         loadAll(),
         getPlans().catch(() => []),
         listAllTeacherRequests().catch((err) => {
           // Usually "relation does not exist" before the latest schema.sql has been run; the rest of the page still works.
           if (active) setRequestsError(err.message);
           return [];
+        }),
+        listParentChoices().catch((err) => {
+          if (active) setChoicesError(err.message);
+          return [];
         })
       ]);
       if (!active) return;
       setPlans(planData);
       setTeacherRequests(requestRows);
+      setParentChoices(choiceRows);
       setLoading(false);
     })();
     return () => { active = false; };
@@ -348,7 +358,7 @@ const Admin = () => {
               <div className="toolbar-row">
                 <h3 className="section-heading" style={{ margin: 0 }}>Online teacher requests ({teacherRequests.length})</h3>
               </div>
-              {requestsError ? <p className="inline-error"><AlertTriangle size={14} /> {requestsError}. Run the latest supabase/schema.sql so the teacher-request table exists.</p> : null}
+              {requestsError ? <p className="inline-error"><AlertTriangle size={14} /> {explainDataError(requestsError, { missing: "the teacher-request table" })}</p> : null}
               <div className="panel-card data-table-wrap">
                 <table className="data-table">
                   <thead>
@@ -389,6 +399,40 @@ const Admin = () => {
                   </tbody>
                 </table>
                 {teacherRequests.length === 0 ? <p className="table-empty">No teacher requests yet.</p> : null}
+              </div>
+
+              <div className="toolbar-row">
+                <h3 className="section-heading" style={{ margin: 0 }}>Parent answers after quizzes ({parentChoices.length})</h3>
+              </div>
+              {choicesError ? <p className="inline-error"><AlertTriangle size={14} /> {explainDataError(choicesError, { missing: "the activity log" })}</p> : null}
+              <div className="panel-card data-table-wrap">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>When</th>
+                      <th>Parent</th>
+                      <th>Chose</th>
+                      <th>Quiz</th>
+                      <th>Score</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {parentChoices.map((row) => {
+                      const choice = row.action === PARENT_CHOICE_ACTIONS.offline ? "offline" : "ai";
+                      const info = row.metadata || {};
+                      return (
+                        <tr key={row.id}>
+                          <td data-label="When" className="cell-muted">{formatDateTime(row.created_at)}</td>
+                          <td data-label="Parent">{row.profiles?.full_name || "—"}<br /><span className="cell-muted">{row.profiles?.email}</span></td>
+                          <td data-label="Chose">{PARENT_CHOICE_LABELS[choice]}</td>
+                          <td data-label="Quiz">{info.title || info.topic || "—"}<br /><span className="cell-muted">{[info.className, info.subject].filter(Boolean).join(" · ")}</span></td>
+                          <td data-label="Score">{info.total ? `${info.correct}/${info.total} · ${info.percentage}%` : "—"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {parentChoices.length === 0 ? <p className="table-empty">No parent answers yet.</p> : null}
               </div>
             </>
           )}

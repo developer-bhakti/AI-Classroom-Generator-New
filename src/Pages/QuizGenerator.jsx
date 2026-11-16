@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Navbar from "../Components/Navbar";
 import Sidebar from "../Components/Sidebar";
 import { Bookmark, BookmarkCheck, AlertTriangle, PlayCircle, CheckCircle2, XCircle, RotateCcw, ListChecks, Target } from "lucide-react";
@@ -11,6 +12,14 @@ import ResourcePrint from "../Components/print/ResourcePrint";
 import { LEVEL_BANDS, describeBand, toneForLevelLabel } from "../Services/assessmentGrading";
 import { buildRound, scoreRound, studentMessage, wrongSourceIndexes } from "../Services/quizRounds";
 import { LevelPill, ScoreRing } from "../Components/assessment/Badges";
+import { useAuth } from "../context/useAuth";
+import { logActivity } from "../Services/activityLog";
+import { analyseQuiz } from "../Services/quizAnalysis";
+import { PARENT_CHOICES, PARENT_CHOICE_ACTIONS } from "../Services/parentChoice";
+import QuizAnalysis from "../Components/quiz/QuizAnalysis";
+import ParentChoice from "../Components/quiz/ParentChoice";
+import BookSource from "../Components/books/BookSource";
+import { useBookSelection } from "../Components/books/useBookSelection";
 
 const OPTION_LABELS = ["A", "B", "C", "D"];
 
@@ -29,8 +38,14 @@ const QuizGenerator = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState([]);
   const [history, setHistory] = useState([]); // one summary per finished round
+  const [firstAttempt, setFirstAttempt] = useState(null); // round 1, marked: the parent's performance analysis is read from it
+  const [parentChoice, setParentChoice] = useState(null); // null | "offline" | "ai"
+  const [quizContext, setQuizContext] = useState(null); // class / subject / topic this quiz was generated for
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   const subjects = useMemo(() => subjectMap[formData.className] || [], [formData.className]);
+  const bookState = useBookSelection(formData.className, formData.subject);
   // The form previews the colour live; once generated the card keeps the palette it was
   // generated with, so editing the dropdowns cannot re-tint output already on screen.
   const formPalette = useMemo(() => getResourcePalette({ ...formData, type: "quiz" }), [formData]);
@@ -49,7 +64,8 @@ const QuizGenerator = () => {
     setLoading(true);
     setError(null);
     try {
-      const resource = await generateResource({ type: "quiz", formData: { ...formData, topic: `${formData.subject}: ${formData.topic}` } });
+      const source = await bookState.buildSource(formData.topic); // the textbook pages, or null when the textbook is off
+      const resource = await generateResource({ type: "quiz", formData: { ...formData, topic: `${formData.subject}: ${formData.topic}` }, source });
       setResult(resource);
       setEntry(await recordHistory({ type: "quiz", formData, result: resource }));
       setSaved(false);
@@ -60,6 +76,9 @@ const QuizGenerator = () => {
       setCurrentIndex(0);
       setAnswers([]);
       setHistory([]);
+      setFirstAttempt(null);
+      setParentChoice(null);
+      setQuizContext({ className: formData.className, subject: formData.subject, topic: formData.topic });
     } catch (err) {
       setError(describeGeminiError(err));
     } finally {
@@ -87,6 +106,10 @@ const QuizGenerator = () => {
 
   const roundTotal = roundItems.length;
   const scored = useMemo(() => (stage === "results" ? scoreRound(roundItems, answers) : null), [stage, roundItems, answers]);
+  const analysis = useMemo(
+    () => (firstAttempt ? analyseQuiz({ scored: firstAttempt, topics: result?.topics || [], fallbackTopic: quizContext?.topic || "This topic" }) : null),
+    [firstAttempt, result, quizContext]
+  );
 
   const beginRound = (nextRound, sourceIndexes) => {
     const items = buildRound(questions, sourceIndexes);
@@ -119,6 +142,11 @@ const QuizGenerator = () => {
     if (currentIndex === roundTotal - 1) {
       const finished = scoreRound(roundItems, answers);
       setHistory((prev) => [...prev, { round, correct: finished.correct, total: finished.total, percentage: finished.percentage, label: finished.level.label }]);
+      // A fresh run through the whole quiz is a new first attempt: it gets its own analysis and its own parent answer.
+      if (round === 1) {
+        setFirstAttempt(finished);
+        setParentChoice(null);
+      }
       setStage("results");
     } else {
       setCurrentIndex((index) => Math.min(roundTotal - 1, index + 1));
@@ -126,6 +154,27 @@ const QuizGenerator = () => {
   };
 
   const backToOverview = () => setStage("preview");
+
+  // The parent's answer after the analysis. Neither answer touches the quiz; AI Classes is the only one that
+  // leaves this page (to the plans), and Offline Tuition just records the answer and shows a thank-you.
+  const handleParentChoice = (choice) => {
+    if (choice === PARENT_CHOICES.offline && parentChoice === PARENT_CHOICES.offline) return;
+    logActivity(user?.id, PARENT_CHOICE_ACTIONS[choice], {
+      title: result?.title,
+      className: quizContext?.className,
+      subject: quizContext?.subject,
+      topic: quizContext?.topic,
+      correct: analysis.correct,
+      total: analysis.attempted,
+      percentage: analysis.percentage,
+      level: analysis.level.label
+    });
+    if (choice === PARENT_CHOICES.ai) {
+      navigate("/subscription?from=quiz");
+      return;
+    }
+    setParentChoice(choice);
+  };
 
   return (
     <div className="app-shell">
@@ -145,6 +194,7 @@ const QuizGenerator = () => {
             </select>
             <label>Topic</label>
             <input name="topic" value={formData.topic} onChange={handleChange} />
+            <BookSource state={bookState} className={formData.className} />
             <label>Duration</label>
             <input name="duration" value={formData.duration} onChange={handleChange} />
             <label>Learning objective</label>
@@ -302,6 +352,13 @@ const QuizGenerator = () => {
                           ))}
                         </ul>
                       </details>
+                    )}
+
+                    {analysis && (
+                      <>
+                        <QuizAnalysis analysis={analysis} />
+                        <ParentChoice choice={parentChoice} onChoose={handleParentChoice} perfect={analysis.incorrect === 0} />
+                      </>
                     )}
 
                     <p className="quiz-level-legend">{LEVEL_BANDS.map(describeBand).join(" · ")}</p>

@@ -277,7 +277,7 @@ Every error screen includes a "Try again" button, so you never have to leave the
 
 | Field | What it means |
 |---|---|
-| Class | PG, Nursery, LKG, UKG, or Class 1–3. |
+| Class | Class 1, 2 or 3. |
 | Subject | Automatically narrows to subjects that make sense for the class you picked (e.g. EVS for the younger classes, Science for Class 3). |
 | Topic | The specific topic to build the worksheet around, e.g. "Fractions". |
 | Difficulty Level | Easy, Medium, or Hard. |
@@ -312,7 +312,7 @@ Every worksheet follows the same fixed shape, in this order:
 
 | Field | What it means |
 |---|---|
-| Class | PG, Nursery, LKG, UKG, or Class 1–3. |
+| Class | Class 1, 2 or 3. |
 | Subject | Narrows automatically based on the class selected. |
 | Topic | The subject matter of the lesson, e.g. "The Water Cycle". |
 | Duration | How long the session runs, e.g. "45 mins". |
@@ -341,7 +341,7 @@ Every worksheet follows the same fixed shape, in this order:
 
 | Field | What it means |
 |---|---|
-| Class | PG, Nursery, LKG, UKG, or Class 1–3. |
+| Class | Class 1, 2 or 3. |
 | Subject | Narrows automatically based on the class selected. |
 | Topic | What the quiz should test, e.g. "Plants Around Us". |
 | Duration | How long the quiz should take students to complete, e.g. "15 mins". |
@@ -368,7 +368,7 @@ Every worksheet follows the same fixed shape, in this order:
 
 | Field | What it means |
 |---|---|
-| Class | PG, Nursery, LKG, UKG, or Class 1–3. |
+| Class | Class 1, 2 or 3. |
 | Subject | Narrows automatically based on the class selected. |
 | Topic | The theme to build activities around, e.g. "Community Helpers". |
 | Duration | How long each activity should fit within, e.g. "30 mins". |
@@ -394,7 +394,7 @@ Every worksheet follows the same fixed shape, in this order:
 
 | Field | What it means |
 |---|---|
-| Class | PG, Nursery, LKG, UKG, or Class 1–3. |
+| Class | Class 1, 2 or 3. |
 | Subject | Narrows automatically based on the class selected. |
 | Topic | The syllabus topic or unit the exam should cover. |
 | Duration | The time limit for the paper, e.g. "60 mins". |
@@ -555,11 +555,10 @@ flowchart TB
 
 ## 19. Appendix — Class & Subject Coverage
 
-Every generator offers the same class list, from pre-primary through to Class 3. Picking a class automatically narrows the Subject dropdown to what's relevant for that age group. The list lives in one place (`src/Services/curriculum.js`), so the whole app — generators, syllabus and child assessment — always agrees on it.
+Every generator offers the same class list: Class 1 to Class 3. Picking a class automatically narrows the Subject dropdown to what's relevant for that age group. The list lives in one place (`src/Services/curriculum.js`), so the whole app — generators, syllabus and child assessment — always agrees on it.
 
 | Class | Available subjects |
 |---|---|
-| PG, Nursery, LKG, UKG | English, Math, EVS |
 | Class 1 – 2 | English, Math, EVS |
 | Class 3 | English, Math, Science |
 

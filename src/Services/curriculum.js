@@ -2,14 +2,11 @@
 // Every generator, the syllabus, the assessment and the dashboard import from here, so changing the
 // range means editing this list and nothing else.
 //
-// The app serves pre-primary to Class 3. To widen it again, add classes to CLASS_SUBJECTS below
-// (older classes get the text-led question mix automatically; see isYoungLearner).
+// The app serves Class 1 to Class 3 only. To bring back the pre-primary classes (PG, Nursery, LKG, UKG) or add
+// older ones, add them to CLASS_SUBJECTS below (classes past Class 2 get the text-led question mix automatically;
+// see isYoungLearner). Children and syllabi already saved for a class that is removed stay in the database.
 
 const CLASS_SUBJECTS = {
-  "PG": ["English", "Math", "EVS"],
-  "Nursery": ["English", "Math", "EVS"],
-  "LKG": ["English", "Math", "EVS"],
-  "UKG": ["English", "Math", "EVS"],
   "Class 1": ["English", "Math", "EVS"],
   "Class 2": ["English", "Math", "EVS"],
   "Class 3": ["English", "Math", "Science"]

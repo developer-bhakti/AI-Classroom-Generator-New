@@ -16,11 +16,12 @@ export const setLanguage = (language) => {
   localStorage.setItem(LANGUAGE_KEY, language);
 };
 
+// worksheet and activity are retired generators (no page any more); they stay listed so rows saved earlier still show.
 export const RESOURCE_TYPES = {
-  worksheet: { label: "Worksheet", path: "/worksheet", icon: "worksheet" },
+  worksheet: { label: "Worksheet", icon: "worksheet" },
   lesson: { label: "Lesson Plan", path: "/lesson", icon: "lesson" },
   quiz: { label: "Quiz", path: "/quiz", icon: "quiz" },
-  activity: { label: "Activity", path: "/activities", icon: "activity" },
+  activity: { label: "Activity", icon: "activity" },
   exam: { label: "Exam Paper", path: "/exam", icon: "exam" }
 };
 

@@ -66,7 +66,7 @@ const SavedContent = () => {
           <section className="page-intro">
             <div className="page-intro-badge">Your library</div>
             <h3>Everything you've bookmarked</h3>
-            <p>Quick access to the worksheets, lesson plans, quizzes, activities, and exam papers you chose to keep.</p>
+            <p>Quick access to the lesson plans, quizzes, exam papers, and earlier worksheets and activities you chose to keep.</p>
           </section>
 
           <div className="toolbar-row">
@@ -96,7 +96,7 @@ const SavedContent = () => {
                   : "Try a different search term or filter."}
               </p>
               {items.length === 0 ? (
-                <Link to="/worksheet" className="primary-btn">Start creating</Link>
+                <Link to="/lesson" className="primary-btn">Start creating</Link>
               ) : null}
             </div>
           ) : (

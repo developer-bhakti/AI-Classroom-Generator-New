@@ -12,6 +12,7 @@ import ReportView from "../Components/assessment/ReportView";
 import { LevelPill } from "../Components/assessment/Badges";
 import { useAuth } from "../context/useAuth";
 import { classOptions } from "../Services/curriculum";
+import { explainDataError } from "../Services/dataErrors";
 import { AREA_EMOJI, MASTERY_THRESHOLD, summarizeAreas } from "../Services/assessmentGrading";
 import { groupAreasOfImprovement } from "../Services/assessmentReport";
 import {
@@ -52,12 +53,12 @@ const StudentProgress = () => {
 
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
-  const [newClass, setNewClass] = useState("UKG");
+  const [newClass, setNewClass] = useState("Class 1");
   const [addBusy, setAddBusy] = useState(false);
 
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState("");
-  const [editClass, setEditClass] = useState("UKG");
+  const [editClass, setEditClass] = useState("Class 1");
 
   const [downloadingId, setDownloadingId] = useState(null);
   const [pdfError, setPdfError] = useState(null);
@@ -76,7 +77,7 @@ const StudentProgress = () => {
         setStudents(rows);
         setSelectedId((current) => (rows.some((row) => row.id === current) ? current : rows[0]?.id || null));
       })
-      .catch((err) => { if (active) setError(`${err.message}. Run the latest supabase/schema.sql so the student tables exist.`); })
+      .catch((err) => { if (active) setError(explainDataError(err.message, { missing: "the student tables" })); })
       .finally(() => { if (active) setLoadingStudents(false); });
     return () => { active = false; };
   }, [user?.id]);
@@ -157,7 +158,7 @@ const StudentProgress = () => {
 
   const startEditing = () => {
     setEditName(student.name);
-    setEditClass(classOptions.includes(student.className) ? student.className : "UKG");
+    setEditClass(classOptions.includes(student.className) ? student.className : "Class 1");
     setEditing(true);
   };
 

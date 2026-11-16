@@ -18,6 +18,7 @@ import { describeGeminiError } from "../Services/geminiService";
 import { MASTERY_THRESHOLD, blankAnswerFor } from "../Services/assessmentGrading";
 import { flattenSyllabus } from "../Services/assessmentPrompts";
 import { classOptions, parsePeriod, subjectMap } from "../Services/curriculum";
+import { explainDataError } from "../Services/dataErrors";
 import {
   ASSESSMENT_LENGTH,
   PRACTICE_LENGTH,
@@ -423,7 +424,7 @@ const Assessment = () => {
               <h3>Select student details</h3>
               <p className="cell-muted">Pick the child, class, year, subject and month. The syllabus for that month loads automatically, so the child is checked only on what has been taught.</p>
             </div>
-            {studentsError ? <p className="inline-error"><AlertTriangle size={14} /> {studentsError}. Run the latest supabase/schema.sql so the student tables exist.</p> : null}
+            {studentsError ? <p className="inline-error"><AlertTriangle size={14} /> {explainDataError(studentsError, { missing: "the student tables" })}</p> : null}
             <AssessmentSetup
               userId={user.id}
               isAdmin={isAdmin}

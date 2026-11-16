@@ -1,5 +1,6 @@
 import { getResourcePalette } from "./resourcePalette";
 import { describeLearners, isPreschool, isYoungLearner } from "./curriculum";
+import { planQuizLength, planExamLength } from "./questionPlan";
 
 const JSON_REMINDER = "Respond only with the requested JSON structure — no markdown, no extra commentary.";
 
@@ -73,15 +74,23 @@ Structure the response as JSON with a "title", a one-sentence "summary", and a "
 ${JSON_REMINDER}`;
 };
 
-export const buildQuizPrompt = ({ topic, className, subject, duration, objective }) => {
+export const buildQuizPrompt = ({ topic, className, subject, duration, objective, difficulty }) => {
+  // How many questions a child can finish in the chosen time (see questionPlan.js), never a fixed number.
+  const { count, minutes } = planQuizLength({ duration, className, subject, difficulty });
+  const topicLimit = Math.min(5, Math.max(2, Math.ceil(count / 2)));
   return `Create a short multiple-choice quiz on "${topic}" for ${subject || "the subject"}, ${className || "the class"}, meant to fit a ${duration || "15 mins"} activity.
 It should assess: ${objective || "understanding of the topic"}.
 ${audienceNote(className)}
-Create 8 to 10 multiple-choice questions of varying difficulty, using clear classroom examples.
-Structure the response as JSON with a "title", a one-sentence "summary", and a "questions" array. Each item in "questions" must be an object with:
+Create exactly ${count} multiple-choice questions of varying difficulty, using clear classroom examples. ${count} is how many a child of this age can finish in about ${minutes} minutes, so write neither more nor fewer.
+Structure the response as JSON with a "title", a one-sentence "summary", a "topics" array and a "questions" array.
+"topics" lists the skills the quiz checks - between 2 and ${topicLimit} items, each an object with:
+- "name": a short skill name a parent can understand (2 to 4 words, for example "Parts of a plant")
+- "activity": one simple hands-on activity a parent can do at home to practise that skill (under 25 words, using everyday things)
+Each item in "questions" must be an object with:
 - "question": the question text
 - "options": an array of exactly 4 answer choices as strings, in a shuffled (non-obvious) order
 - "correctIndex": the 0-based index into "options" of the one correct answer
+- "topic": the "name" of the one item in "topics" this question checks, copied exactly; spread the questions across the topics
 - "explanation": one short, friendly sentence (under 20 words) telling the student why that answer is right, so a child who got it wrong learns from it
 
 Exactly one option per question must be correct; the other three should be plausible but clearly wrong distractors.
@@ -99,15 +108,18 @@ ${JSON_REMINDER}`;
 };
 
 export const buildExamPrompt = ({ className, subject, topic, duration, totalMarks, difficulty, instructions }) => {
+  // How many questions fit the time limit (see questionPlan.js), never a fixed ten.
+  const plan = planExamLength({ duration, className, subject, difficulty, totalMarks });
   return `Create a polished exam paper for ${className || "the class"} on ${subject || "the subject"}: "${topic}".
 Total marks: ${totalMarks || "50"}. Time limit: ${duration || "60 mins"}. Difficulty: ${difficulty || "Medium"}.
 ${audienceNote(className)}
 Structure the response as JSON with a "title", a one-sentence "summary", a "sections" array and an "answerKey" array.
 
 "sections" is the STUDENT'S question paper. It must contain exactly these two sections, in order:
-1. "Section A" — 5 shorter-answer questions using realistic classroom scenarios.
-2. "Section B" — 5 application/longer-answer questions that require more reasoning.
-Write each question as one numbered item with its marks, for example "1. ... (2 marks)". If a question is multiple choice, put its options (A, B, C, D) inside the same item. The marks of all ten questions must add up to ${totalMarks || "50"}.
+1. "Section A" — exactly ${plan.sectionA} shorter-answer questions using realistic classroom scenarios.
+2. "Section B" — exactly ${plan.sectionB} application/longer-answer questions that require more reasoning.
+That is ${plan.total} questions in all, the number a child can finish in about ${plan.minutes} minutes, so write neither more nor fewer. Number them 1 to ${plan.total} straight through.
+Write each question as one numbered item with its marks, for example "1. ... (2 marks)". If a question is multiple choice, put its options (A, B, C, D) inside the same item. Every question is worth at least 1 whole mark, and the marks of all ${plan.total} questions must add up to ${totalMarks || "50"}.
 The student's paper must NEVER contain answers, hints, worked solutions, explanations, marking schemes or an "Answer Guide" - not at the end and not inside a question. It holds questions and options only.
 
 "answerKey" is for the TEACHER ONLY and is printed separately from the paper. It must contain exactly two sections, "Section A answers" and "Section B answers", each listing the answers in question order, for example "1. 12 (2 marks)", with a brief marking hint for the longer questions. Do not repeat the questions.

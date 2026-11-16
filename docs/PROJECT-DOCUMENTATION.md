@@ -21,7 +21,7 @@ when everything was stored inside the browser and many of today's features did n
 3. [The screen layout](#3-the-screen-layout)
 4. [Signing up, logging in, signing out](#4-signing-up-logging-in-signing-out)
 5. [The Dashboard](#5-the-dashboard)
-6. [The five resource generators](#6-the-five-resource-generators)
+6. [The resource generators](#6-the-resource-generators)
 7. [History and Saved Content](#7-history-and-saved-content)
 8. [Syllabus](#8-syllabus)
 9. [Child Assessment](#9-child-assessment)
@@ -58,12 +58,14 @@ when everything was stored inside the browser and many of today's features did n
 
 ## 1. What the product is
 
-Adiuvaret AI Classroom Generator is a website for teachers of **pre-primary to Class 3** (PG, Nursery, LKG,
-UKG, Class 1, Class 2, Class 3). It does two main jobs.
+Adiuvaret AI Classroom Generator is a website for teachers of **Class 1, Class 2 and Class 3**. It does two main
+jobs.
 
 **Job 1 — Make teaching material with AI.** A teacher chooses a class, subject and topic. The AI writes a
-**worksheet**, **lesson plan**, **quiz**, **classroom activities** or **exam paper**. Everything is written for
-the age of the children (for example, picture-based tasks that an adult reads aloud for 3-year-olds).
+**lesson plan**, **quiz** or **exam paper**. Everything is written for the age of the children (for example,
+short sentences and picture-based tasks that an adult can read aloud to a 6-year-old). If the school has uploaded
+the NCERT textbook, the AI can be made to write **only from that book's pages** (see "Textbook mode" in
+[section 6](#6-the-resource-generators)).
 
 **Job 2 — Check a child's progress.** The teacher picks a class, subject and month. The app takes that month's
 **syllabus**, asks the teacher to rate each topic, then creates a **20-question paper**. After the child answers,
@@ -76,8 +78,8 @@ Adiuvaret team.
 
 | Item | Detail |
 |---|---|
-| Classes | PG, Nursery, LKG, UKG, Class 1, Class 2, Class 3. Nothing above Class 3 can be chosen. |
-| Subjects | English, Math, EVS for PG to Class 2. English, Math, Science for Class 3. |
+| Classes | Class 1, Class 2, Class 3. Nothing else can be chosen. |
+| Subjects | English, Math, EVS for Class 1 and 2. English, Math, Science for Class 3. |
 | Languages | Resources can be written in **English** or **Hindi** (Dashboard → Customize Experience). Child assessments are always English. |
 | School year | April to March, in four terms: Term 1 Apr–Jun, Term 2 Jul–Sep, Term 3 Oct–Dec, Term 4 Jan–Mar. |
 | Website | A React single-page app, built to plain files and hosted on ordinary Apache/cPanel hosting. |
@@ -106,14 +108,19 @@ A child is only a **row in a teacher's list** (name + class). Children have no l
 | Login `/`, Sign up `/signup` | — | — | — |
 | Dashboard `/dashboard` | ✔ | — | — |
 | Profile `/profile`, Password Management `/password`, Settings `/settings`, Subscription `/subscription` | ✔ | — | — |
-| Worksheet `/worksheet`, Lesson `/lesson`, Quiz `/quiz`, Activities `/activities`, Exam `/exam` | ✔ | ✔ | — |
+| Lesson `/lesson`, Exam `/exam` | ✔ | ✔ | — |
+| Quiz `/quiz` — **free**: a child can play without a subscription | ✔ | — | — |
+| Textbooks `/books` — anyone signed in can read; only an admin can upload, edit or delete | ✔ | — | upload only |
 | Child Assessment `/assessment`, Syllabus `/syllabus`, Students `/students` | ✔ | ✔ | — |
 | Saved Content `/saved`, History `/history` | ✔ | ✔ | — |
 | Admin Dashboard `/admin` | ✔ | — | ✔ |
 
 Without a subscription, the paid pages send the teacher to the Subscription page. A "buy a subscription"
-pop-up also comes back 10 seconds after each time it is closed (except on the Subscription page itself, so it
-never covers the pay buttons).
+pop-up also comes back 10 seconds after each time it is closed, except on the Subscription page itself (so it
+never covers the pay buttons) and on the **Quiz page**, which is free: a child playing a quiz is never shown a
+payment request. Plans appear only when a parent opens the Subscription page, for example by choosing **AI
+Classes** after a quiz. The old `/worksheet` and `/activities` addresses (those two tools were removed) lead to
+the Dashboard.
 
 ---
 
@@ -123,10 +130,9 @@ never covers the pay buttons).
 
 Every signed-in page has the same frame.
 
-- **Sidebar (left, dark blue):** Dashboard · Admin Dashboard (admins only) · Worksheet Generator · Lesson Plan
-  Generator · Quiz Generator · Activity Generator · Exam Paper Generator · Child Assessment · Syllabus ·
-  Students & Reports · Saved Content · History · Subscription · Profile · **Password Management** · Settings ·
-  Logout.
+- **Sidebar (left, dark blue):** Dashboard · Admin Dashboard (admins only) · Lesson Plan Generator · Quiz
+  Generator · Exam Paper Generator · Child Assessment · Syllabus · **Textbooks** · Students & Reports · Saved
+  Content · History · Subscription · Profile · **Password Management** · Settings · Logout.
 - **Top bar:** the page title, a **search box** (searches your own generated resources by title, class, subject or
   type and opens a preview), an "AI ready" label, a bell (no function yet), a light/dark button and your name
   (click for a small profile card).
@@ -161,7 +167,7 @@ The first screen after login has four parts.
    term), then press the button. It opens Child Assessment with those choices already filled in.
 2. **Seven cards** that open the assessment side of the app: Annual Syllabus, Monthly Syllabus, Student Details,
    Assessment, Results, Areas of Improvement, Progress Report.
-3. **Teaching tools** — cards for the Worksheet, Lesson Plan, Quiz and Activity generators.
+3. **Teaching tools** — cards for the Lesson Plan and Quiz generators.
 4. **Customize Experience** — choose the **language** the AI writes resources in (English or Hindi). This is saved
    on the device, and it applies to every generator except Child Assessment.
 
@@ -169,34 +175,59 @@ The three numbers shown (for example "240+ Resources generated") are fixed text,
 
 ---
 
-## 6. The five resource generators
+## 6. The resource generators
 
-All five work the same way:
+There are three: **Lesson Plan**, **Quiz** and **Exam Paper**. (The Worksheet and Activity Ideas generators were
+removed. Worksheets and activity ideas saved earlier still open in History and Saved Content.) All three work
+the same way:
 
 1. Choose **Class**. The **Subject** list then shows only the subjects for that class.
-2. Fill in the topic and the other fields, then press the Generate button.
-3. Wait a few seconds. The result appears on the right. Every text result is added to **History**; press **Save**
-   to also keep it in **Saved Content**. (Worksheet *images* are not kept: download them.)
-4. If the AI is busy, a clear message appears with a **Try again** button.
+2. If the school has uploaded a textbook for that class and subject, a **Textbook** box appears (see "Textbook
+   mode" below).
+3. Fill in the topic and the other fields, then press the Generate button.
+4. Wait a few seconds. The result appears on the right. Every result is added to **History**; press **Save** to
+   also keep it in **Saved Content**.
+5. If the AI is busy, a clear message appears with a **Try again** button.
 
-**Pitched at the right age.** The AI is always told the children's age and how they read. For PG–UKG it writes
-spoken, picture and action based tasks. A topic that is too advanced (for example "Photosynthesis" for PG) is
-simplified, never refused.
+**Pitched at the right age.** The AI is always told the children's age and how they read. For Class 1 and 2 it writes
+short sentences and picture or hands-on tasks. A topic that is too advanced (for example "Photosynthesis" for
+Class 1) is simplified, never refused. (In textbook mode the book decides what is covered; see below.)
 
 **Colours.** Each result card has its own colour. The subject chooses the colour family, the class chooses the
 shade, and the type of resource shifts it slightly. This only helps the eye; it has no other meaning.
 
 | Generator | You fill in | You get |
 |---|---|---|
-| **Worksheet** `/worksheet` | Class, Subject, Topic, Difficulty (Easy / Medium / Hard), Worksheet type (free text, default "Practice"), Learning objectives, Additional instructions | **Image mode (default):** a finished printable A4 page drawn by the AI, which you **download** (PNG/JPG). **Text worksheet:** sections *Warm-Up*, *Practice*, *Reflection*. |
 | **Lesson Plan** `/lesson` | Class, Subject, Topic, Duration (default 45 mins), Learning objective | Sections *Opening*, *Guided Practice*, *Independent Practice*, *Closing* |
-| **Quiz** `/quiz` | Class, Subject, Topic, Duration, Learning objective | 8–10 multiple-choice questions you can **play on screen** (see below) |
-| **Activity Ideas** `/activities` | Class, Subject, Topic, Duration (default 30 mins), Objective | 3–4 activities, each with a setup and a learning outcome |
-| **Exam Paper** `/exam` | Class, Subject, Topic, Duration, Total marks, Difficulty, Instructions | The **student paper** (Section A: 5 short questions, Section B: 5 application questions) and, separately, a **teacher answer key** |
+| **Quiz** `/quiz` | Class, Subject, Topic, Duration, Learning objective | A multiple-choice quiz you can **play on screen** (see below). The **number of questions follows the Duration**. |
+| **Exam Paper** `/exam` | Class, Subject, Topic, Duration, Total marks, Difficulty, Instructions | The **student paper** (Section A: short questions, Section B: application questions, **counted from the time limit**) and, separately, a **teacher answer key** |
 
-> **Worksheet images need billing.** Gemini image models are not free. Image mode works only when the Google
-> project behind the API key has billing switched on; otherwise it shows a "quota" message. **Text worksheet** is
-> unaffected. Images are **not saved** (they are too large): download them straight away.
+### How many questions? (from the duration)
+
+Neither the quiz nor the exam paper has a fixed number of questions. The app works the number out from the time
+the teacher typed (`15 mins`, `1 hour`, `1h 30m` and `45` are all understood), so a child can finish in time:
+
+- About a minute per multiple-choice question (75 seconds in Class 1, 60 in Class 2, 50 in Class 3), **longer for
+  Maths (×1.3) and English (×1.1)**, shorter for Easy and longer for Hard. 15% of the time is kept back for
+  settling in and checking.
+- An exam paper gives about 60% of the time to Section A (short answers) and 40% to Section B (longer answers,
+  twice as long each), and never has more questions than **marks** (a question is worth at least 1 whole mark).
+
+| Time | Quiz, Class 3 Science | Quiz, Class 2 English | Exam, Class 3 Maths (Medium) |
+|---|:---:|:---:|:---:|
+| 5 mins | 5 | 3 | |
+| 10 mins | 10 | 7 | |
+| 20 mins | 20 | 15 | 3 + 1 |
+| 30 mins | 30 | 23 | |
+| 40 mins | | | 7 + 2 |
+| 60 mins | | | 11 + 3 |
+| 90 mins | | | 17 + 5 |
+
+Limits: a quiz has 3 to 40 questions; an exam has 2 to 20 in Section A and 1 to 8 in Section B. If the time cannot
+be read, a quiz assumes 15 minutes and an exam 60. The AI is told the exact number; if it writes more, the extra
+questions are cut so the quiz still fits the time, and if it writes fewer the quiz still works. The quiz form has no
+Difficulty box, so a quiz counts as Medium; the exam's Difficulty does change its count. Lesson plans are not
+affected (the duration only shapes the lesson).
 
 ### The quiz player and "second round"
 
@@ -215,27 +246,117 @@ just remember "it was C"). The student repeats until every question is right. A 
 **Retake whole quiz** and **Back to overview** are always available. Rounds live only on the screen; they are not
 saved.
 
+### After the quiz: the parent's analysis and choice
+
+At the end of the **first** run through the whole quiz, the results page finishes with two boxes for the parent.
+Nothing here interrupts the child, who can carry on with **Practise the missed questions** as before.
+
+**Performance analysis** shows:
+
+- how many questions were **attempted, correct and incorrect**, the **score** and the level;
+- **how much improvement is needed**, for example *"Your child scored 50% (5 of 10). To reach Good (75%) they need
+  3 more right answers out of 10, an improvement of about 25 percentage points."*;
+- the topics grouped as **Doing well** (75% or more), **Needs improvement** (50–74%) and **Needs additional
+  practice** (under 50%);
+- **Where to focus**, weakest topic first, and a **home activity** for each weak topic.
+
+The topics and their activities are written by the AI together with the quiz, and each question remembers its topic,
+so a quiz opened later from History can still be analysed. The analysis always describes the **first full attempt**,
+so practising the missed questions does not change it. (Quizzes saved before this feature have no topics: their
+questions are grouped under the quiz's own topic with a plain activity.)
+
+**The parent's question** comes next: *"Based on your child's performance, we recommend additional learning support.
+How would you like to proceed?"* with two buttons.
+
+| Button | What happens |
+|---|---|
+| **AI Classes** | Opens the Subscription page (`/subscription?from=quiz`) with a short list of what a plan adds, then the plans with their prices and features. Nothing is charged until **Subscribe** is pressed. |
+| **Offline Tuition Classes** | Stays on the page and shows *"Thank you for your interest! We appreciate your response. Our team will connect with you regarding offline tuition classes."* No form, no payment, no pop-up. |
+
+Each answer is saved in the activity log (who, which quiz, the score) and shown to admins under **Parent answers
+after quizzes** (section 13), so the team can follow up. A child who answered every question correctly is shown
+*"Your child answered every question correctly. If you would still like extra learning support, how would you like
+to proceed?"* instead, with the same two buttons. A retake of the whole quiz gives a new analysis and a new
+question.
+
+### Download PDF / Print (every tool)
+
+Every generator has a **Download PDF / Print** button under its result (on the quiz it is next to **Start Quiz**), and
+the same button is in the preview window of every item in History and Saved Content. It opens the browser's print
+window: print on paper, or choose **Save as PDF** as the destination to get a file. (The print window is used
+instead of a built-in PDF maker because a built-in one cannot draw Hindi.)
+
+| Tool | What comes out |
+|---|---|
+| **Quiz** | The questions with a circle to colour for each option, Name / Class / Date / Score. **No answers or explanations**, and the options are shuffled so the right answer is not always A. |
+| **Exam paper** | Title, class, subject, time and marks, Name / Class / Date / Marks, the instructions, the questions and writing lines. **Never any answers.** |
+| **Exam answer key** | A separate sheet marked "Teacher copy: answer key. Not for students." (button inside the teacher answer key box). The saved file name also says "teacher only". |
+| **Lesson plan** | A clean teacher document. |
+
 ### The exam paper and its answer key
 
 The paper shown to students holds **only questions and their options**. The answers are never part of it. They
 are in a collapsed box under the paper called **Teacher answer key (teacher only, not part of the student
 paper)**. The same box appears in the History and Saved previews. Papers saved earlier, which had an "Answer
-Guide" inside, were converted automatically: that section now sits in the teacher answer key. There is no PDF
-export for exam papers.
+Guide" inside, were converted automatically: that section now sits in the teacher answer key. The paper and the key print
+separately (see "Download PDF / Print" below).
+
+### Textbook mode: write only from the NCERT book
+
+When the school has uploaded a textbook for the chosen class and subject, a **Textbook** box appears under the
+Topic field of the Lesson, Quiz and Exam forms. This is how Class 1 resources are kept to the NCERT book instead of
+the AI's general knowledge.
+
+- **Use only the textbook** is **ticked by default** when a book exists. Untick it to write from general knowledge,
+  exactly as before.
+- **Match my topic** (the default choice) finds the chapter(s) whose title, key words or summary match the topic
+  typed. If none match, it stops with *"I couldn't find "Dinosaurs" in this book. Pick the chapter yourself, or
+  change the topic to match a chapter."* and nothing is sent to the AI.
+- Press one or more **chapter buttons** to choose chapters yourself. A chosen chapter overrides the topic.
+
+Only the pages of those chapters are sent to the AI (at most 60 pages), along with strict "textbook mode" rules:
+use only the attached pages; reuse the book's own words, names and number ranges; describe a picture in words when a
+question depends on it (the printed sheet will not hold the book's pictures); never invent a page, exercise or
+chapter name; write **fewer** items rather than pad with outside material; take the **wrong** answer choices from
+the book too. The result's note shows where it came from, for example *"Source: Joyful Mathematics · Shapes
+(pages 10-21 of the PDF)"*. If the pages do not cover the topic, the AI says so in the summary instead of
+inventing it. With no book uploaded for Class 1, the form shows a one-line hint: "Class 1 resources can follow the
+NCERT book. Ask your admin to upload it under Textbooks."
+
+### The Textbooks page (`/books`)
+
+Everyone signed in can see the school's books and their chapters. **Admins** can add, fix and remove them.
+
+**To add a book (admin):**
+
+1. Choose the **PDF** (up to 50 MB). Use the NCERT PDF itself. A locked PDF is refused with instructions: open it
+   in a PDF viewer, choose Print, then "Save as PDF", and upload that copy.
+2. Check the **title** (suggested from the file name), **class**, **subject** and the **book language**.
+3. Press **Upload and read the book** and keep the page open for about a minute. The app saves the PDF, then
+   Gemini reads the book in parts of 80 pages and lists every chapter with its first page. Each chapter ends on the
+   page before the next one starts.
+
+Each book card shows its class, subject, pages and chapters (open **Chapters** to see titles, page ranges, a
+one-line summary and key words). **Edit chapters** lets an admin rename a chapter and change its first and last
+page; pages are counted **from the first page of the PDF** (1, 2, 3 …), not the numbers printed on the pages.
+**Delete** removes the book and its PDF; lessons, quizzes and papers already made from it stay saved. If the AI
+cannot read the chapters, the book is still kept, split into 20-page sections, with a message to fix them by hand.
+
+Upload only books you are allowed to use. NCERT books are published for school use, but check the terms before
+adding any other publisher's book.
 
 ---
 
 ## 7. History and Saved Content
 
 - **History** (`/history`) is the log of everything you generated, newest first. You can filter by type
-  (Worksheet, Lesson Plan, Quiz, Activity, Exam Paper), search, **view** a preview, **save**, or **delete** one item.
+  (Lesson Plan, Quiz, Exam Paper, and Worksheet / Activity for items made before those tools were removed), search, **view** a preview, **save**, or **delete** one item.
   *Clear history* removes every item you have **not** saved; saved items stay. (The page text says "last 50", but up to **200** are loaded — see
   [section 24](#24-known-gaps-and-suggestions).)
 - **Saved Content** (`/saved`) is your library: the items you pressed **Save** on. **Remove** takes an item out of
   Saved. A saved item is the **same row** as its History entry, so **deleting one item from History also removes
   it from Saved** (only *Clear history* spares saved items).
 - Your history belongs to you. Nobody else sees it, except admins (read only).
-- Worksheet **images** are never stored.
 
 ---
 
@@ -296,7 +417,7 @@ what was chosen on this step.
 
 | Children | Question mix (of 20) |
 |---|---|
-| **PG to Class 2** — an adult reads each question aloud | 4 picture questions · 6 multiple choice · 4 fill-in (tap to choose) · 3 match · 3 simple activities |
+| **Class 1 and Class 2** — an adult can read each question aloud | 4 picture questions · 6 multiple choice · 4 fill-in (tap to choose) · 3 match · 3 simple activities |
 | **Class 3** | 12 multiple choice · 3 fill-in · 2 true/false · 2 match · 1 problem solving |
 
 Pictures are emoji. The answer options are shuffled by the app so the right answer is not always first.
@@ -386,6 +507,10 @@ list them: they could not be edited, deleted or assessed from another account.)
   date, so a pause never costs the teacher any days.
 - **Payment history** (the last 20 payments) is shown on the page.
 - **Admins** are never blocked by the paywall.
+- **Quizzes are free.** The Quiz page needs a login but no subscription, and never shows the "buy a subscription"
+  pop-up. The plans appear only when a parent opens the Subscription page, for example by choosing **AI Classes**
+  after a quiz (section 6). Free quizzes still use the school's Gemini key, so watch its spending (section 24).
+  The list of free pages is one line in `src/Services/freeAccess.js` (`FREE_PATHS`).
 
 ---
 
@@ -455,6 +580,11 @@ Every request from teachers: when, student, class and subject, topics, who asked
 status. Admins change the status: Requested → Teacher assigned → Completed. (Teachers can only create and read
 their own requests.)
 
+### Parent answers after quizzes table
+Every time a parent pressed **AI Classes** or **Offline Tuition Classes** after a quiz: when, who (name and email),
+which choice, the quiz (title, class, subject) and the score. This is the list the team uses to follow up with the
+parents who chose offline tuition. It needs the latest `schema.sql` only for the activity log, which already exists.
+
 ---
 
 # Part 3 — How it works inside
@@ -484,7 +614,7 @@ flowchart TB
 |---|---|
 | Website | React 19, Vite 8, react-router-dom 7, Tailwind CSS 4 (plus a large hand-written `index.css`) |
 | Icons | lucide-react, react-icons |
-| PDF | jsPDF (loaded only when a PDF is made) |
+| PDF | jsPDF (loaded only when a PDF is made). **pdf-lib** cuts chapter pages out of a textbook PDF (loaded only when a book is uploaded or used). |
 | Accounts and data | Supabase: Auth, Postgres with Row Level Security, Edge Functions (Deno) |
 | AI | Google Gemini REST API (no SDK) |
 | Payments | Razorpay Checkout + Edge Functions |
@@ -523,6 +653,11 @@ sequenceDiagram
   P->>S: records it in History
   P-->>T: shows it (Save keeps it in Saved)
 ```
+
+**With a textbook** the same path has three extra steps: the page asks `bookService` for the chosen chapters, which
+downloads the stored PDF (once per visit), cuts out just those pages and returns them as one small PDF; `aiService`
+adds the "textbook pages" paragraph to the prompt; and `geminiService` sends the pages first, then the prompt, with
+the textbook-mode rules added to the system instruction.
 
 ### Paying
 
@@ -587,6 +722,8 @@ on for every table: a person can only read and change their own rows unless a ru
 | `teaching_sessions` | AI tutor chats: `skill`, `transcript`, practice score | The teacher |
 | `teacher_requests` | Online-teacher requests: areas, `preferred_time`, `contact`, `note`, `status` (`requested` / `assigned` / `completed` / `cancelled`) | The teacher can create/read; **only admins change status** |
 | `syllabus_entries` | `academic_year`, `class_name`, `subject`, `month`, `topics` (a list), `owner_id`, `is_shared` | Everyone can read **shared** rows and their own; only admins write shared rows |
+| `books` | A textbook: `title`, `class_name`, `subject`, `language`, `page_count`, `file_path`, `status` (`processing` / `ready` / `failed`), `uploaded_by` | Everyone signed in can read; **only admins write** |
+| `book_chapters` | A book's chapters: `position`, `title`, `start_page`, `end_page`, `summary`, `topics` (key words). Deleted with the book. | Everyone signed in can read; **only admins write** |
 
 **Automatic things in the database**
 
@@ -600,6 +737,9 @@ on for every table: a person can only read and change their own rows unless a ru
 **Rules worth knowing**
 
 - At most **one shared syllabus row per month**, and one personal row per teacher per month.
+- The textbook PDFs themselves are not in a table. They live in a **private storage area named `books`** (created
+  by `schema.sql`): PDF files only, 50 MB each, readable by anyone signed in, writable and deletable only by an
+  admin. Nobody can link to a file from outside the app.
 - A student's id on any child record must belong to the signed-in teacher, so a guessed id cannot attach data to
   someone else's child.
 - Status of a subscription is not updated by a timer. "Expired" is **worked out** from the end date whenever it is
@@ -626,8 +766,9 @@ on for every table: a person can only read and change their own rows unless a ru
 
 ## 17. The AI (Gemini)
 
-**Models.** Text uses `gemini-flash-latest` (change with `VITE_GEMINI_MODEL`). Worksheet images use
-`gemini-3.1-flash-image` (`VITE_GEMINI_IMAGE_MODEL`).
+**Models.** Text uses `gemini-flash-latest` (change with `VITE_GEMINI_MODEL`). The image setting
+`VITE_GEMINI_IMAGE_MODEL` is no longer used by any page (the Worksheet generator that drew pictures was removed);
+the code is kept in case it is brought back.
 
 **Always JSON.** Every text request asks for a fixed JSON shape and the app checks it. A wrong shape is treated as
 an error and the teacher can retry.
@@ -642,7 +783,7 @@ everywhere. Image generation does not fall back.
 
 | Task | AI? |
 |---|---|
-| Worksheets, lessons, quizzes (with a one-line reason for each answer), activities, exam paper **and** its separate answer key | Yes |
+| Lessons, quizzes (with a topic and a one-line reason for each question, and a home activity for each topic), exam paper **and** its separate answer key | Yes |
 | Syllabus drafts ("Suggest with AI") | Yes, as an unsaved draft |
 | The 20-question assessment paper | Yes |
 | **Marking an assessment** | **No** — done by the app against the answer key |
@@ -653,6 +794,23 @@ everywhere. Image generation does not fall back.
 (assessments and tutor). Every resource prompt starts with an **audience note**: the class, the children's age,
 how they read, and "simplify an advanced topic, never decline it".
 
+**Textbook mode (how it works).** Gemini can read a PDF directly, pictures and Hindi included, which a plain text
+copy of an NCERT book cannot give (Class 1 books are mostly pictures, and text copied out of Hindi PDFs is often
+garbled). So the app does not build a search index of the book's text. Instead:
+
+1. **Reading a book (once, at upload).** The PDF is cut into parts of 80 pages. Each part is sent to Gemini with
+   `buildIndexPrompt` and a low temperature (0.1). Gemini returns each chapter's title, **starting position in the
+   file** (not the printed number), a one-line summary and key words. `bookChapters.normaliseChapters` cleans the
+   list (sorts it, drops impossible pages, ends each chapter where the next begins).
+2. **Using a book (every generation).** The chapters are chosen (ticked by the teacher, or matched to the topic by
+   title, key words and summary). Only those pages are cut out with pdf-lib and sent as one small PDF **before** the
+   prompt. The system instruction is the usual one plus `BOOK_SYSTEM_RULES` (`src/Services/bookGrounding.js`),
+   the temperature is lowered to 0.3, and the time allowed is raised to 60 seconds.
+3. **Cost.** Pages count as input: roughly 250 tokens a page, so a 4-page chapter adds about 1,000 tokens to a
+   request. Reading a book at upload costs the same for every page once.
+
+The rules in `BOOK_SYSTEM_RULES` are the school's "system prompt" for this mode; change the wording there.
+
 **Messages.** Failures are turned into plain sentences (wrong key, busy, offline, too slow, blocked). The same
 message appears on every generator.
 
@@ -662,7 +820,7 @@ message appears on every generator.
 
 | Rule | Value |
 |---|---|
-| Classes offered | PG, Nursery, LKG, UKG, Class 1, 2, 3 (one list: `CLASS_SUBJECTS` in `src/Services/curriculum.js`) |
+| Classes offered | Class 1, 2, 3 (one list: `CLASS_SUBJECTS` in `src/Services/curriculum.js`) |
 | Assessment length | 20 questions (a practice retest has 10) |
 | Levels | 90 / 75 / 60 percent bands: Excellent / Good / Average / Needs Improvement |
 | A topic needs practice when | the child scored **under 75%** on it **or** the teacher rated it Needs Improvement |
@@ -673,6 +831,11 @@ message appears on every generator.
 | New end date after paying | the later of (today, current end date) + the plan's months |
 | Pause | the paused time is added back to the end date on resume |
 | Quiz levels | the same bands as assessments, from the rounded percentage the student sees |
+| Quiz length | from the duration, class, subject and difficulty: 3 to 40 questions (section 6) |
+| Exam length | Section A 2–20 and Section B 1–8 questions from the time limit; never more questions than marks |
+| Quiz topic bands | 75% or more: doing well · 50–74%: needs improvement · under 50%: needs additional practice |
+| Free pages | `/quiz` (`FREE_PATHS` in `src/Services/freeAccess.js`) |
+| Textbook limits | PDF up to 50 MB · read in parts of 80 pages · at most 60 pages and about 14 MB sent with one request |
 | Delete a user | not yourself; not the last admin |
 | Change a role | not your own; at least one admin must always remain |
 
@@ -695,7 +858,8 @@ npm install
 
 **3. Create the database.** Supabase → **SQL Editor** → New query → paste all of `supabase/schema.sql` → **Run**.
 It is safe to run again at any time; it upgrades an older database in place. *Run it again after every update of
-the project* (new columns and rules are added to it).
+the project* (new columns and rules are added to it). The same file creates the textbook tables and the private
+`books` storage area.
 
 **4. Auth settings** (Supabase → Authentication)
 - *Sign In / Providers → Email → "Confirm email"*: **off** for quick testing, **on** for a public site.
@@ -777,7 +941,7 @@ side by side. Do not upload the `dist` folder itself, and never upload `.env`.
 | **Answer a request for an online teacher** | Admin Dashboard → *Online teacher requests* → change the status. |
 | **Change plan prices** | Supabase SQL Editor: `update public.plans set price_inr = 599 where code = '1m';` |
 | **Add a syllabus for all teachers** | Sign in as admin → Syllabus → choose class/subject/month → type topics → save as **School syllabus**. For many months, copy `seed-class2-math-syllabus.sql` and change the class, subject and topics. |
-| **Add Class 4 or higher later** | Add it to `CLASS_SUBJECTS` and `AGE_NOTES` in `src/Services/curriculum.js`; check its subjects have colours in `resourcePalette.js`. |
+| **Bring back PG / Nursery / LKG / UKG, or add Class 4 or higher** | Add the class to `CLASS_SUBJECTS` (and `AGE_NOTES` if it is new) in `src/Services/curriculum.js`, and change the default class in `Dashboard.jsx`, `Syllabus.jsx`, `StudentProgress.jsx` and `AssessmentSetup.jsx` if you want it to open first. Check its subjects have colours in `resourcePalette.js`. Children and syllabi already saved for a removed class stay in the database. |
 | **Add a second admin** | Edit their account type to Admin. |
 
 ---
@@ -787,6 +951,7 @@ side by side. Do not upload the `dist` folder itself, and never upload `.env`.
 | What you see | Cause and fix |
 |---|---|
 | "Could not find the table 'public.students' (or `teacher_requests`, `syllabus_entries`, …)" | `schema.sql` has not been run on this Supabase project. Run the **whole file** in the SQL Editor. |
+| "Your sign-in has expired. Please log out and log in again." (or older versions: "JWT expired") | The login on this computer went stale. The app now renews it by itself the first time a page is refused; if the login cannot be renewed any more it signs you out so you can log in again. Do that once if you see this message. |
 | Subscription page: "Couldn't load the subscription plans: …" | The message now says why. "Your sign-in has expired" → log out and in. "Table missing" → run `schema.sql`. "Can't be reached" → check the internet and that the Supabase project is not paused. |
 | "The user-management service is not set up yet" | Deploy `admin-manage-user` (`supabase functions deploy admin-manage-user`). |
 | Exam papers save but the teacher answer key is empty after reopening | `schema.sql` has not been re-run, so the `answer_key` column is missing. Run it. |
@@ -794,7 +959,12 @@ side by side. Do not upload the `dist` folder itself, and never upload `.env`.
 | `/signup` or `/dashboard` shows 404 after a refresh | `.htaccess` is missing on the server (section 20). |
 | "Could not update the student: Cannot coerce the result to a single JSON object" (older versions) | The child belonged to another login (typical for an admin looking at a teacher's children). Fixed: the list now shows only your own children, and a change that touches nothing says "nothing was changed. This child may belong to another teacher's account…". Children created under another login appear only when you are signed in as that login. |
 | Gemini "high demand" / slow / "taking too long" | Google is busy. The app already retries on a lighter model; press **Try again**. |
-| Worksheet image says quota/billing | Enable billing on the Google project of the key, or use **Text worksheet**. |
+| "The textbook storage is not set up yet" or "Could not find the table 'public.books'" | `schema.sql` has not been run since textbooks were added. Run the **whole file** in the SQL Editor. |
+| Textbooks upload says the PDF "is locked" | Open it in a PDF viewer, Print → "Save as PDF", and upload that copy. |
+| A book is saved as "Pages 1-20, 21-40 …" | The AI could not read its chapters (busy, or a scanned PDF it could not make out). Use **Edit chapters** to name them and set the pages, or delete the book and upload it again. |
+| "I couldn't find … in this book" | The topic matches no chapter title or key word. Press a chapter button to choose it yourself, or change the topic. |
+| "The textbook file could not be loaded" | The stored PDF could not be downloaded. Try again; if it keeps failing, upload the book again. |
+| No Textbook box on a generator | No ready book exists for that class **and** subject. Check the book's class and subject on the Textbooks page. |
 | "No Gemini API key found" | Add `VITE_GEMINI_API_KEY` to `.env`, restart `npm run dev`, or rebuild for the live site. |
 | Admin Dashboard cannot be opened | The account's role is not `admin`. Make it admin (setup step 6) and log in again. |
 | A paid page keeps sending a teacher to Subscription | Their subscription is not **Active** (expired, paused or cancelled). Check it in Edit/Manage. |
@@ -819,6 +989,13 @@ exam, quiz, assessment and tutor prompts. **Not yet checked against your real Su
 payments, real emails, or a deployed `admin-manage-user` function.** Do the checklist below once after the next
 deploy.
 
+**The textbook feature** was also checked with an invented Class 1 reader (so any outside fact would stand out)
+against the real Gemini: it found the three chapters at the right PDF pages (ignoring the printed numbers), the
+quiz and exam used only the chapter sent, a topic not in the book ("Dinosaurs") produced no invented facts and said
+so, and the wrong answer choices came from the book. The access rules were run on a real Postgres engine
+(teachers cannot add, change or delete books or files). **Not yet tried with a real NCERT PDF on your Supabase
+project.**
+
 **Manual checklist after a deploy**
 
 - [ ] Sign up → email → link signs you in.
@@ -828,6 +1005,10 @@ deploy.
 - [ ] Each generator makes a result; Save and History work; Hindi language works.
 - [ ] Quiz: answer some wrong → results list them → "Practise the missed questions" asks only those.
 - [ ] Exam paper: no answers in the paper; the teacher answer key opens separately.
+- [ ] Quiz: a login with **no subscription** can play a whole quiz with no pop-up; the analysis shows; **AI Classes**
+      opens the plans; **Offline Tuition Classes** shows the thank-you message; the answer appears in Admin.
+- [ ] Textbooks: as admin upload the Class 1 NCERT book; check the chapters and page ranges; as a teacher make a
+      lesson and a quiz with the textbook on and read the result against the book.
 - [ ] Assessment: a month with a syllabus → rate topics → 20 questions → results → print the report.
 - [ ] Admin → Edit: change a name; change a plan/end date; set a password and copy it; the teacher can log in
       with it.
@@ -860,7 +1041,18 @@ deploy.
    first version and say data is stored in the browser. They carry a notice pointing here. Replace them when time
    allows.
 
+**Textbook mode: limits to know**
+- It is used by the **Lesson, Quiz and Exam** generators only. Child Assessment papers and "Suggest with AI" syllabus
+  drafts still use the AI's general knowledge (the syllabus topics are the guide there).
+- Only whole chapters (or the chapters' page ranges) are used. A chapter longer than 60 pages must be split with
+  **Edit chapters** before it can be chosen.
+- A scanned PDF with poor pictures may be read badly. Always check the chapter list after an upload.
+- The stored PDF is downloaded once per visit before the first generation, so that first one is a little slower.
+- Every textbook generation sends page images to Gemini, which costs more than a text-only request (and the free
+  Quiz page can be used without a subscription), so the Gemini key's spending cap matters even more.
+
 **Ideas**
+- Use the textbook in Child Assessment and syllabus drafts.
 - Parent login (read-only report access).
 - Email the Progress Report to parents.
 - More syllabi (other classes and subjects) loaded like the Class 2 Maths file.
@@ -878,13 +1070,12 @@ deploy.
 | `/` | Login | `src/Pages/Login.jsx` |
 | `/signup` | Sign up | `SignUp.jsx` |
 | `/dashboard` | Dashboard | `Dashboard.jsx` |
-| `/worksheet` | Worksheet Generator | `WorksheetGenerator.jsx` |
 | `/lesson` | Lesson Plan Generator | `LessonGenerator.jsx` |
 | `/quiz` | Quiz Generator and player | `QuizGenerator.jsx` |
-| `/activities` | Activity Generator | `ActivityIdeas.jsx` |
 | `/exam` | Exam Paper Generator | `ExamPaper.jsx` (`ExamPaperGenerator.jsx` is an older copy that is not used) |
 | `/assessment` | Child Assessment | `Assessment.jsx` |
 | `/syllabus` | Syllabus | `Syllabus.jsx` |
+| `/books` | Textbooks | `Books.jsx` |
 | `/students` | Students & Reports | `StudentProgress.jsx` |
 | `/saved` | Saved Content | `SavedContent.jsx` |
 | `/history` | History | `History.jsx` |
@@ -943,6 +1134,9 @@ Each row of `activity_log` is one event for one user (admins can read all).
 | `assessment_completed` | Finished a child assessment |
 | `teaching_session_completed` | Ran an AI teaching session |
 | `teacher_requested` | Asked for an online teacher |
+| `book_uploaded` | An admin uploaded a textbook (title, class, subject) |
+| `parent_chose_ai_classes` | A parent pressed **AI Classes** after a quiz (quiz title, class, subject, score) |
+| `parent_chose_offline_tuition` | A parent pressed **Offline Tuition Classes** after a quiz |
 | `subscription_renewed` | Paid and renewed |
 | `subscription_granted` / `_paused` / `_resumed` / `_cancelled` / `_deleted` | Done by an admin |
 | `password_changed` | Changed their own password (`via`: password page or reset link) |
@@ -973,9 +1167,19 @@ src/
   Components/               Sidebar, Navbar, route guards, TeacherAnswerKey, PrintPortal
     assessment/             question player, results, report, evaluation, tutor, charts
     admin/                  EditUserForm, UserIdLine
+    quiz/                   QuizAnalysis, ParentChoice
+    books/                  BookSource (the Textbook box), useBookSelection
   Services/
     geminiService.js        talks to Gemini; JSON shapes; fall-back; errors
-    promptBuilder.js        prompts for the five generators (+ audience note)
+    promptBuilder.js        prompts for the three generators (+ audience note)
+    questionPlan.js         how many questions fit a duration (quiz and exam)
+    quizAnalysis.js         the parent's performance analysis of a quiz
+    parentChoice.js         the parent's question, the thank-you text, the activity-log names
+    freeAccess.js           which pages are free (FREE_PATHS)
+    bookGrounding.js        the textbook-mode system prompt and the chapter-reading prompt
+    bookChapters.js         cleaning chapter lists, matching a topic to chapters, page limits
+    bookPdf.js              reads a PDF and cuts pages out (pdf-lib)
+    bookService.js          upload, list, edit, delete books; builds the pages for a request
     aiService.js            builds a resource from a form
     assessmentPrompts.js    prompts for papers, analysis, tutor, syllabus drafts
     assessmentService.js    runs an assessment end to end
